@@ -1,0 +1,85 @@
+# Xenium Analysis Configuration
+# Example configuration for 10x Genomics Xenium data
+# This demonstrates a typical single-platform SPATCH workflow.
+
+technology: xenium
+
+# ═══════════════════════════════════════════════════════════════════
+# SEGMENTATION
+# ═══════════════════════════════════════════════════════════════════
+
+segmentation:
+  method: cellpose
+  cellpose:
+    diameter: 30
+    channels: [DAPI]
+    model_type: cyto2
+    use_gpu: true
+    patch_width_pixel: 2048
+    patch_overlap_pixel: 100
+
+resolve:
+  method: baysor
+
+# ═══════════════════════════════════════════════════════════════════
+# AGGREGATION
+# ═══════════════════════════════════════════════════════════════════
+
+aggregate:
+  average_intensities: true
+  min_transcripts: 10
+
+# ═══════════════════════════════════════════════════════════════════
+# PREPROCESSING
+# ═══════════════════════════════════════════════════════════════════
+
+preprocessing:
+  min_genes_per_cell: 200
+  max_genes_per_cell: 8000
+  min_cells_per_gene: 3
+  max_pct_mt: 20
+  target_sum: 10000
+  log1p: true
+  n_top_genes: 2000
+  n_pcs: 50
+  n_neighbors: 15
+
+# ═══════════════════════════════════════════════════════════════════
+# CLUSTERING
+# ═══════════════════════════════════════════════════════════════════
+
+clustering:
+  spatial_neighbors:
+    coord_type: generic
+    n_neighs: 15
+  leiden:
+    resolutions: [0.5, 1.0]
+
+# ═══════════════════════════════════════════════════════════════════
+# ANNOTATION
+# ═══════════════════════════════════════════════════════════════════
+
+annotation:
+  tangram:
+    enabled: true
+    reference: /data/references/lung_scrnaseq.h5ad
+    cell_type_key: cell_type
+
+# ═══════════════════════════════════════════════════════════════════
+# CUSTOM MODULES
+# ═══════════════════════════════════════════════════════════════════
+
+custom_modules:
+  steps:
+    - module: diffusion_analysis
+      enabled: true
+      config:
+        table_key: table
+        in_tissue_col: in_tissue
+        compute_distances: true
+    
+    - module: cell_shape_metrics
+      enabled: true
+      config:
+        boundaries_key: cell_boundaries
+        table_key: table

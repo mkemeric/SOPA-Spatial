@@ -1,0 +1,6 @@
+sample,technology,data_path,config
+patient_001_xenium,xenium,/data/xenium/patient_001/,configs/xenium_example.yaml
+patient_001_codex,codex,/data/codex/patient_001/,configs/spatch_full.yaml
+patient_002_xenium,xenium,/data/xenium/patient_002/,configs/xenium_example.yaml
+patient_002_codex,codex,/data/codex/patient_002/,configs/spatch_full.yaml
+patient_003_xenium,xenium,/data/xenium/patient_003/,configs/multimodal_xenium_codex.yaml

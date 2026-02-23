@@ -1,0 +1,139 @@
+# Multi-Modal Analysis Configuration
+# Xenium (spatial transcriptomics) + CODEX (protein imaging)
+#
+# This configuration demonstrates the full SPATCH multi-modal workflow
+# for analyzing paired ST and protein imaging data.
+
+technology: xenium
+
+# ═══════════════════════════════════════════════════════════════════
+# SEGMENTATION (on Xenium DAPI)
+# ═══════════════════════════════════════════════════════════════════
+
+segmentation:
+  method: cellpose
+  cellpose:
+    diameter: 30
+    channels: [DAPI]
+    model_type: cyto2
+    use_gpu: true
+
+resolve:
+  method: baysor
+
+aggregate:
+  average_intensities: true
+  min_transcripts: 10
+
+# ═══════════════════════════════════════════════════════════════════
+# PREPROCESSING
+# ═══════════════════════════════════════════════════════════════════
+
+preprocessing:
+  min_genes_per_cell: 200
+  min_cells_per_gene: 3
+  max_pct_mt: 20
+  target_sum: 10000
+  log1p: true
+  n_top_genes: 2000
+  n_pcs: 50
+  n_neighbors: 15
+
+# ═══════════════════════════════════════════════════════════════════
+# CLUSTERING
+# ═══════════════════════════════════════════════════════════════════
+
+clustering:
+  spatial_neighbors:
+    coord_type: generic
+    n_neighs: 15
+  leiden:
+    resolutions: [0.5, 1.0]
+
+# ═══════════════════════════════════════════════════════════════════
+# ANNOTATION
+# ═══════════════════════════════════════════════════════════════════
+
+annotation:
+  tangram:
+    enabled: true
+    reference: /data/references/scrnaseq_reference.h5ad
+    cell_type_key: cell_type
+
+# ═══════════════════════════════════════════════════════════════════
+# CUSTOM MODULES - MULTI-MODAL ANALYSIS
+# ═══════════════════════════════════════════════════════════════════
+
+custom_modules:
+  steps:
+    # ─────────────────────────────────────────────────────────────
+    # Step 1: Load CODEX protein data
+    # ─────────────────────────────────────────────────────────────
+    - module: codex_loader
+      enabled: true
+      config:
+        data_path: /data/codex_output/
+        load_image: false
+        detection_prob_quantile: 0.1
+    
+    # ─────────────────────────────────────────────────────────────
+    # Step 2: Diffusion analysis on ST data
+    # ─────────────────────────────────────────────────────────────
+    - module: diffusion_analysis
+      enabled: true
+      config:
+        table_key: table
+        in_tissue_col: in_tissue
+        compute_distances: true
+    
+    # ─────────────────────────────────────────────────────────────
+    # Step 3: Gene-Protein correlation (cross-modal)
+    # ─────────────────────────────────────────────────────────────
+    # Requires that both datasets are registered to a common
+    # coordinate system (done via napari-spatialdata landmarks)
+    - module: gene_protein_correlation
+      enabled: true
+      config:
+        gene_table_key: table
+        protein_table_key: codex_table
+        resolution_um: [100, 200, 300, 400, 500]
+        method: spearman
+        # Gene-to-protein mapping for this experiment
+        gene_protein_map:
+          # Epithelial markers
+          EPCAM: Pan-Cytokeratin
+          KRT18: Pan-Cytokeratin
+          # T cell markers
+          CD3E: CD3e
+          CD3D: CD3e
+          CD4: CD4
+          CD8A: CD8
+          FOXP3: FOXP3
+          # Myeloid markers
+          CD68: CD68
+          # B cell markers  
+          MS4A1: CD20
+          # NK markers
+          NCAM1: CD56
+          # Endothelial markers
+          CD34: CD34
+          # Fibroblast markers
+          ACTA2: SMA
+    
+    # ─────────────────────────────────────────────────────────────
+    # Step 4: Cell shape metrics
+    # ─────────────────────────────────────────────────────────────
+    - module: cell_shape_metrics
+      enabled: true
+      config:
+        boundaries_key: cell_boundaries
+        table_key: table
+
+# ═══════════════════════════════════════════════════════════════════
+# OUTPUT
+# ═══════════════════════════════════════════════════════════════════
+
+output:
+  export:
+    anndata: true
+    figures: true

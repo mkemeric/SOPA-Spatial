@@ -1,0 +1,209 @@
+# SPATCH Full Pipeline Configuration
+# Complete spatial transcriptomics analysis workflow combining Sopa
+# built-in steps with SPATCH custom modules.
+#
+# This configuration file demonstrates the full SPATCH pipeline
+# rebuilt on the SpatialData + Sopa platform.
+
+# ═══════════════════════════════════════════════════════════════════
+# DATA LOADING
+# ═══════════════════════════════════════════════════════════════════
+# Sopa/SpatialData-io handles loading for most platforms natively.
+# Set the technology and input path.
+
+technology: xenium  # xenium | visium_hd | cosmx | stereoseq | merscope | codex
+
+# Input data path (will be overridden by CLI or samplesheet)
+data_path: null
+
+# ═══════════════════════════════════════════════════════════════════
+# SEGMENTATION (Sopa built-in)
+# ═══════════════════════════════════════════════════════════════════
+# Cell segmentation using Cellpose (deep learning) on DAPI channel.
+# This replaces SPATCH's custom DAPI masking and segmentation code.
+
+segmentation:
+  method: cellpose
+  cellpose:
+    # Cell diameter in pixels (adjust per platform/magnification)
+    diameter: 30
+    
+    # Channels to use for segmentation
+    channels: [DAPI]
+    
+    # Cellpose model (cyto2 works well for most cell types)
+    model_type: cyto2
+    
+    # GPU acceleration (requires CUDA)
+    use_gpu: true
+    
+    # Patch-based processing for large images
+    patch_width_pixel: 2048
+    patch_overlap_pixel: 100
+
+# ═══════════════════════════════════════════════════════════════════
+# CONFLICT RESOLUTION (Sopa built-in)
+# ═══════════════════════════════════════════════════════════════════
+# Handle overlapping cells at patch boundaries
+
+resolve:
+  method: baysor  # or "cellpose" for simpler cases
+
+# ═══════════════════════════════════════════════════════════════════
+# AGGREGATION (Sopa built-in)
+# ═══════════════════════════════════════════════════════════════════
+# Count transcripts per cell and compute summary statistics
+
+aggregate:
+  # Compute average intensities from images
+  average_intensities: true
+  
+  # Gene panel (null = all genes)
+  gene_panel: null
+  
+  # Minimum transcripts per cell
+  min_transcripts: 10
+
+# ═══════════════════════════════════════════════════════════════════
+# PREPROCESSING & QC (scanpy standard)
+# ═══════════════════════════════════════════════════════════════════
+# Standard single-cell preprocessing workflow
+
+preprocessing:
+  # Cell filtering
+  min_genes_per_cell: 200
+  max_genes_per_cell: 8000
+  
+  # Gene filtering  
+  min_cells_per_gene: 3
+  
+  # Mitochondrial filtering
+  max_pct_mt: 20
+  
+  # Normalization
+  target_sum: 10000
+  log1p: true
+  
+  # Highly variable genes
+  n_top_genes: 2000
+  
+  # Dimensionality reduction
+  n_pcs: 50
+  n_neighbors: 15
+
+# ═══════════════════════════════════════════════════════════════════
+# CLUSTERING (squidpy spatial + scanpy)
+# ═══════════════════════════════════════════════════════════════════
+
+clustering:
+  # Spatial neighbors graph
+  spatial_neighbors:
+    coord_type: generic
+    n_neighs: 15
+  
+  # Leiden clustering at multiple resolutions
+  leiden:
+    resolutions: [0.3, 0.5, 1.0]
+
+# ═══════════════════════════════════════════════════════════════════
+# ANNOTATION (Sopa built-in + custom)
+# ═══════════════════════════════════════════════════════════════════
+# Cell type annotation using reference datasets
+
+annotation:
+  # Tangram annotation (Sopa built-in)
+  tangram:
+    enabled: true
+    reference: /data/references/scrnaseq_reference.h5ad
+    cell_type_key: cell_type
+  
+  # CellTypist annotation (optional)
+  celltypist:
+    enabled: false
+    model: Immune_All_Low.pkl
+
+# ═══════════════════════════════════════════════════════════════════
+# CUSTOM SPATCH MODULES
+# ═══════════════════════════════════════════════════════════════════
+# These modules implement SPATCH-specific analyses that aren't
+# covered by standard Sopa functionality.
+
+custom_modules:
+  # Directory for user-contributed modules (optional)
+  user_module_dir: ./user_modules/
+  
+  # Custom analysis steps - executed in order listed
+  steps:
+    # ─────────────────────────────────────────────────────────────
+    # CODEX Loader (only if processing CODEX data)
+    # ─────────────────────────────────────────────────────────────
+    - module: codex_loader
+      enabled: false  # Enable when processing CODEX
+      config:
+        data_path: /data/codex_output/
+        load_image: false
+        detection_prob_quantile: 0.1
+    
+    # ─────────────────────────────────────────────────────────────
+    # Diffusion Analysis
+    # ─────────────────────────────────────────────────────────────
+    # Compare in-tissue vs out-of-tissue signal to quantify
+    # transcript diffusion effects (important for sST platforms)
+    - module: diffusion_analysis
+      enabled: true
+      config:
+        table_key: table
+        tissue_mask_key: tissue_boundary
+        in_tissue_col: in_tissue
+        buffer_distance_um: 50.0
+        compute_distances: true
+        batch_size: 100000
+    
+    # ─────────────────────────────────────────────────────────────
+    # Gene-Protein Correlation
+    # ─────────────────────────────────────────────────────────────
+    # Multi-resolution correlation between ST and CODEX
+    # (only if both modalities are present)
+    - module: gene_protein_correlation
+      enabled: false  # Enable for multi-modal analysis
+      config:
+        gene_table_key: table
+        protein_table_key: codex_table
+        resolution_um: [100, 200, 300, 400, 500]
+        method: spearman
+        # Custom gene-protein mapping (optional)
+        # gene_protein_map:
+        #   CD3E: CD3e
+        #   EPCAM: Pan-Cytokeratin
+    
+    # ─────────────────────────────────────────────────────────────
+    # Cell Shape Metrics
+    # ─────────────────────────────────────────────────────────────
+    # Compute morphological metrics from cell segmentation masks
+    - module: cell_shape_metrics
+      enabled: true
+      config:
+        boundaries_key: cell_boundaries
+        table_key: table
+        add_to_table: true
+
+# ═══════════════════════════════════════════════════════════════════
+# OUTPUT
+# ═══════════════════════════════════════════════════════════════════
+
+output:
+  # Zarr output path (will be set by pipeline)
+  zarr_path: null
+  
+  # Export formats
+  export:
+    # Export to Xenium Explorer format
+    xenium_explorer: false
+    
+    # Export AnnData tables
+    anndata: true
+    
+    # Export figures
+    figures: true
+    figure_format: png
+    figure_dpi: 150
