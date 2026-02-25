@@ -86,23 +86,66 @@ fi
 echo "Checking Python installation..."
 $PYTHON --version
 
+# ── Helper: filter out already-satisfied packages ───────────────
+# Uses importlib.metadata to check installed versions against specs.
+# Returns only the package specs that are missing or outdated.
+filter_missing() {
+    local specs=("$@")
+    local missing=()
+    for spec in "${specs[@]}"; do
+        if ! $PYTHON -c "
+import sys
+from importlib.metadata import version, PackageNotFoundError
+from packaging.requirements import Requirement
+from packaging.version import Version
+req = Requirement('''$spec''')
+try:
+    v = Version(version(req.name))
+except PackageNotFoundError:
+    sys.exit(1)
+if req.specifier and not req.specifier.contains(v):
+    sys.exit(1)
+" 2>/dev/null; then
+            missing+=("$spec")
+        fi
+    done
+    # Return the list via stdout, one per line
+    printf '%s\n' "${missing[@]}"
+}
+
+pip_install_missing() {
+    local label="$1"; shift
+    local specs=("$@")
+    local to_install=()
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && to_install+=("$line")
+    done < <(filter_missing "${specs[@]}")
+
+    if [ ${#to_install[@]} -eq 0 ]; then
+        echo "✓ $label — all packages already satisfied, skipping."
+    else
+        echo "Installing ${#to_install[@]} package(s) for $label..."
+        printf '  %s\n' "${to_install[@]}"
+        $PIP install "${to_install[@]}"
+        echo "✓ $label installed"
+    fi
+}
+
 echo ""
 echo "========================================"
 echo "Step 1: Installing core spatial packages"
 echo "========================================"
-echo "Installing sopa, spatialdata, and spatialdata-io from PyPI..."
-$PIP install \
+pip_install_missing "Core spatial packages" \
     "sopa>=2.1" \
     "spatialdata>=0.6" \
     "spatialdata-io>=0.2" \
     "spatialdata-plot>=0.2.14,<0.3"
-echo "✓ Core spatial packages installed"
 
 echo ""
 echo "========================================"
 echo "Step 2: Installing analysis dependencies"
 echo "========================================"
-$PIP install \
+pip_install_missing "Analysis packages" \
     "scanpy>=1.10" \
     "squidpy>=1.5" \
     "cellpose>=3.0" \
@@ -114,16 +157,19 @@ $PIP install \
     pyyaml \
     jupyter \
     ipykernel
-echo "✓ Analysis packages installed"
 
 echo ""
 echo "========================================"
 echo "Step 3: Installing SPATCH modules"
 echo "========================================"
 if [ -f "pyproject.toml" ]; then
-    echo "Installing spatch_modules in editable mode..."
-    $PIP install -e . --no-deps
-    echo "✓ spatch_modules installed"
+    if $PYTHON -c "import spatch_modules" 2>/dev/null; then
+        echo "✓ spatch_modules already installed, skipping."
+    else
+        echo "Installing spatch_modules in editable mode..."
+        $PIP install -e . --no-deps
+        echo "✓ spatch_modules installed"
+    fi
 else
     echo "⚠️  WARNING: pyproject.toml not found"
 fi
