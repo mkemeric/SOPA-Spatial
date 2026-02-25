@@ -185,8 +185,10 @@ echo "========================================"
 echo "Step 3b: Installing SPATCH modules"
 echo "========================================"
 if [ -f "pyproject.toml" ]; then
-    if $PYTHON -c "import spatch_modules" 2>/dev/null; then
-        echo "✓ spatch_modules already installed, skipping."
+    # Use pip show (not import) — import can succeed via CWD on sys.path
+    # but Jupyter kernels run from a different directory.
+    if $PIP show spatch_modules >/dev/null 2>&1; then
+        echo "✓ spatch_modules already pip-installed, skipping."
     else
         echo "Installing spatch_modules in editable mode..."
         $PIP install -e . --no-deps
