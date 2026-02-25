@@ -17,7 +17,9 @@ class WorkflowPaths:
         ### SpatialData object files
         self.data_path = self.config["data_path"]
         self.sdata_path = Path(self.config["sdata_path"])
-        self.sdata_zgroup = self.sdata_path / ".zgroup"  # trick to fix snakemake ChildIOException
+        # Zarr v3 writes zarr.json; Zarr v2 writes .zgroup.
+        # Use a .sopa_cache sentinel instead so the Snakefile works with either format.
+        self.sdata_zgroup = self.sdata_path / ".sopa_cache" / "spatialdata_created"
 
         self.shapes_dir = self.sdata_path / "shapes"
         self.points_dir = self.sdata_path / "points"

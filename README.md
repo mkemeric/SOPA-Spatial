@@ -4,83 +4,57 @@ A production-ready spatial transcriptomics analysis pipeline that rebuilds the o
 
 ## Overview
 
-This project migrates the ~4,000 lines of custom SPATCH analysis code to a maintainable pipeline built on established open-source infrastructure, reducing custom code to ~400 lines across four plug-in modules while preserving all original analytical capabilities.
+This project uses stock **Sopa** and **SpatialData** from PyPI for the core spatial transcriptomics pipeline (data loading, segmentation, aggregation, preprocessing), plus a lightweight `spatch_modules` package (~400 lines) for custom analysis extensions.
 
 ### Key Benefits
 
-- **88% code reduction**: From ~4,000 lines to ~400 lines of custom code
-- **Unified data model**: All data stored in a single Zarr-backed SpatialData object
-- **Multi-platform support**: Native loaders for Xenium, Visium HD, CosMx, Stereo-seq, and MERSCOPE
-- **Extensible modules**: Easy-to-write custom analysis modules with a uniform interface
-- **Production orchestration**: Ready for Snakemake (HPC) or Nextflow (cloud) deployment
+- **Config-driven**: YAML configs drive the entire pipeline — no custom code needed for standard workflows
+- **Stock packages**: sopa, spatialdata, scanpy, squidpy all installed from PyPI
+- **Sopa pipeline**: Snakemake workflow + CLI for end-to-end processing
+- **Extensible**: Custom SPATCH modules plug in for domain-specific analysis
+- **Multi-platform**: Native support for Xenium, Visium HD, CosMx, MERSCOPE, and more
 
 ## Installation
 
-### Using conda (recommended)
-
 ```bash
-# Create environment
-conda env create -f environment.yml
-conda activate spatch
-
-# Install spatch-modules package
-pip install -e .
+cd /path/to/multiomics
+./setup_environment.sh
 ```
 
-### Using pip
-
-```bash
-pip install spatch-modules[all]
-```
+This installs stock sopa + spatialdata from PyPI and `spatch_modules` in editable mode. See `ENVIRONMENT_QUICKSTART.md` for details.
 
 ## Quick Start
 
-### 1. Load spatial data
+### 1. Run the sopa pipeline (CLI)
 
-```python
-import spatialdata_io as sdio
-import spatialdata as sd
+```bash
+# Convert Xenium data to SpatialData
+sopa convert /path/to/xenium_output/ --sdata-path results/output.zarr --technology xenium
 
-# Built-in loaders for most platforms
-sdata = sdio.xenium("/path/to/xenium_output/")
-# or: sdata = sdio.visium_hd("/path/to/visium_hd_output/")
-# or: sdata = sdio.cosmx("/path/to/cosmx_output/")
+# Segment with Cellpose
+sopa segmentation cellpose results/output.zarr --diameter 30 --channels DAPI
+
+# Aggregate transcripts per cell
+sopa aggregate results/output.zarr --min-transcripts 10
 ```
 
-### 2. Run Sopa segmentation and aggregation
+### 2. Or use Snakemake (fully automated)
 
-```python
-import sopa
-
-sopa.make_image_patches(sdata)
-sopa.segmentation.cellpose(sdata, channels="DAPI", diameter=30)
-sopa.resolve_conflicts(sdata)
-sopa.aggregate(sdata)
+```bash
+snakemake --snakefile sopa/workflow/Snakefile \
+  --configfile configs/janesick_sopa.yaml \
+  --config data_path=/path/to/xenium_output/ \
+  --cores 4
 ```
 
 ### 3. Run SPATCH custom modules
 
 ```python
-from spatch_modules import run_single_module
+import spatialdata as sd
+from spatch_modules.runner import run_custom_pipeline
 
-# Diffusion analysis
-sdata = run_single_module(sdata, "diffusion_analysis",
-    table_key="table",
-    in_tissue_col="in_tissue"
-)
-
-# Cell shape metrics  
-sdata = run_single_module(sdata, "cell_shape_metrics",
-    boundaries_key="cell_boundaries"
-)
-```
-
-### 4. Run full pipeline from config
-
-```python
-from spatch_modules import run_custom_pipeline
-
-results = run_custom_pipeline(sdata, "configs/xenium_example.yaml")
+sdata = sd.read_zarr("results/output.zarr")
+results = run_custom_pipeline(sdata, "configs/janesick_breast_cancer.yaml")
 ```
 
 ## Custom Modules
@@ -134,6 +108,8 @@ Place the file in the `user_modules/` directory and it will be automatically dis
 
 Pipeline configuration uses YAML files. See `configs/` for examples:
 
+- `janesick_sopa.yaml` - Sopa-native config for Janesick breast cancer data
+- `janesick_breast_cancer.yaml` - Full config including SPATCH custom modules
 - `spatch_full.yaml` - Complete pipeline with all options documented
 - `xenium_example.yaml` - Minimal Xenium workflow
 - `multimodal_xenium_codex.yaml` - Multi-modal ST + CODEX analysis
@@ -166,27 +142,29 @@ custom_modules:
 
 ```
 multiomics/
-├── spatch_modules/          # Custom module library
+├── spatch_modules/          # Custom SPATCH analysis modules
 │   ├── base.py              # SpatchModule ABC + ModuleResult
 │   ├── registry.py          # Module discovery and instantiation
 │   ├── runner.py            # YAML-driven pipeline execution
 │   ├── cli.py               # Command-line interface
-│   └── builtin/             # Shipped modules
+│   └── builtin/             # Built-in modules
 │       ├── codex_loader.py
 │       ├── diffusion_analysis.py
 │       ├── gene_protein_correlation.py
 │       └── cell_shape_metrics.py
-├── configs/                 # Pipeline configurations
-├── samplesheets/            # Input manifests
-├── user_modules/            # User-contributed modules
+├── configs/                 # Pipeline YAML configurations
+│   ├── janesick_sopa.yaml           # Sopa-native config for Janesick data
+│   ├── janesick_breast_cancer.yaml  # Full config including SPATCH modules
+│   ├── spatch_full.yaml             # Complete annotated reference config
+│   └── xenium_example.yaml          # Minimal Xenium example
 ├── notebooks/               # Jupyter notebooks
+├── user_modules/            # User-contributed modules (auto-discovered)
 ├── tests/                   # Module tests
 ├── docs/                    # Documentation
-├── sopa/                    # Sopa library (cloned)
-├── spatialdata/             # SpatialData library (cloned)
-├── pyproject.toml           # Package metadata
-├── environment.yml          # Conda environment
-└── README.md
+├── pyproject.toml           # spatch_modules package metadata
+├── environment.yml          # Conda environment spec
+├── setup_environment.sh     # Automated setup script
+└── setup_local_imports.py   # Notebook environment helper
 ```
 
 ## Multi-Modal Analysis (ST + CODEX)
@@ -215,24 +193,16 @@ For paired spatial transcriptomics and protein imaging data:
 
 ## Workflow Orchestration
 
-### Snakemake (HPC)
+Sopa ships a Snakemake workflow that handles the full pipeline. See `configs/janesick_sopa.yaml` for the config format.
 
 ```bash
-snakemake \
+snakemake --snakefile sopa/workflow/Snakefile \
+  --configfile configs/janesick_sopa.yaml \
   --config data_path=/data/xenium_001 \
-  --configfile=configs/xenium_example.yaml \
-  --profile slurm \
-  --cores 64
+  --cores 4
 ```
 
-### Nextflow (Cloud)
-
-```bash
-nextflow run main.nf \
-  -profile docker \
-  --input samplesheets/experiment.csv \
-  --outdir results/
-```
+For HPC, add a Snakemake profile (e.g. `--profile slurm`).
 
 ## License
 

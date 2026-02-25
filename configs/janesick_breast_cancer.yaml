@@ -1,0 +1,237 @@
+# Janesick Breast Cancer Test Configuration
+# Configuration for analyzing the 10x Genomics Janesick et al. (Nature Communications, 2023)
+# FFPE Human Breast Cancer (Invasive Ductal Carcinoma with DCIS) sample
+# Data from: https://github.com/10XGenomics/janesick_nature_comms_2023_companion
+
+technology: xenium
+
+# Input data path (update this to your data location)
+data_path: ../data/outs/
+
+# ═══════════════════════════════════════════════════════════════════
+# SEGMENTATION (using existing Xenium segmentation)
+# ═══════════════════════════════════════════════════════════════════
+# The Janesick data comes with pre-computed segmentation from Xenium Ranger.
+# We'll load the existing cell boundaries rather than re-segment.
+# If re-segmentation is desired, uncomment the segmentation section below.
+
+segmentation:
+  use_existing: true  # Use Xenium Ranger segmentation from cells.parquet
+  
+  # Uncomment to re-segment with Cellpose (not typically needed)
+  # method: cellpose
+  # cellpose:
+  #   diameter: 35  # Breast cancer cells are typically ~35 pixels
+  #   channels: [DAPI]
+  #   model_type: cyto2
+  #   use_gpu: true
+  #   patch_width_pixel: 2048
+  #   patch_overlap_pixel: 100
+
+# ═══════════════════════════════════════════════════════════════════
+# AGGREGATION (using existing Xenium aggregation)
+# ═══════════════════════════════════════════════════════════════════
+# The Janesick data includes pre-aggregated cell x gene matrix.
+# If re-aggregation is needed, configure here.
+
+aggregate:
+  use_existing: true  # Use Xenium cell_feature_matrix
+  average_intensities: true
+  min_transcripts: 10
+
+# ═══════════════════════════════════════════════════════════════════
+# PREPROCESSING & QC
+# ═══════════════════════════════════════════════════════════════════
+# Standard single-cell preprocessing optimized for breast cancer tissue
+
+preprocessing:
+  # Cell filtering - relaxed for tumor samples
+  min_genes_per_cell: 50  # Lower threshold for tumor cells
+  max_genes_per_cell: 10000  # Higher for potential highly transcriptionally active cells
+  
+  # Gene filtering  
+  min_cells_per_gene: 5
+  
+  # Mitochondrial filtering - important for FFPE tissue quality assessment
+  max_pct_mt: 25  # More permissive for FFPE
+  mito_prefix: "MT-"  # Human mitochondrial genes
+  
+  # Normalization
+  target_sum: 10000
+  log1p: true
+  
+  # Highly variable genes
+  n_top_genes: 3000  # More genes for complex tumor microenvironment
+  flavor: seurat_v3
+  
+  # Dimensionality reduction
+  n_pcs: 50
+  n_neighbors: 30  # Larger for dense Xenium data
+  umap_min_dist: 0.3
+
+# ═══════════════════════════════════════════════════════════════════
+# CLUSTERING
+# ═══════════════════════════════════════════════════════════════════
+# Multi-resolution clustering to capture tumor microenvironment heterogeneity
+
+clustering:
+  # Spatial neighbors graph
+  spatial_neighbors:
+    coord_type: generic
+    n_neighs: 30  # Dense spatial graph for Xenium resolution
+    
+  # Leiden clustering at multiple resolutions
+  leiden:
+    resolutions: [0.3, 0.5, 0.8, 1.0, 1.5]  # Multiple resolutions for tumor heterogeneity
+
+# ═══════════════════════════════════════════════════════════════════
+# ANNOTATION
+# ═══════════════════════════════════════════════════════════════════
+# Cell type annotation using marker genes for breast cancer
+
+annotation:
+  # Manual marker-based annotation
+  markers:
+    # Epithelial cells
+    epithelial: [EPCAM, KRT18, KRT8]
+    
+    # Tumor cells (invasive carcinoma)
+    tumor_invasive: [FASN, CEACAM6, MKI67]
+    
+    # DCIS (ductal carcinoma in situ)
+    tumor_dcis: [CEACAM6, ESR1]
+    
+    # Myoepithelial cells (tumor border)
+    myoepithelial: [ACTA2, KRT15, KRT14, TP63]
+    
+    # Fibroblasts/Stroma
+    stromal: [POSTN, COL1A1, COL1A2, DCN]
+    
+    # Immune cells
+    t_cells: [CD3E, CD3D, IL7R]
+    macrophages: [ITGAX, CD68, LYZ]
+    b_cells: [MS4A1, CD79A]
+    
+    # Endothelial cells
+    endothelial: [VWF, PECAM1, CDH5]
+    
+  # Optionally use Tangram for automated annotation with reference
+  tangram:
+    enabled: false  # Set to true if you have a scRNA-seq reference
+    reference: /data/references/breast_cancer_scrnaseq.h5ad
+    cell_type_key: cell_type
+
+# ═══════════════════════════════════════════════════════════════════
+# SPATIAL ANALYSIS
+# ═══════════════════════════════════════════════════════════════════
+# Spatial statistics specific to tumor microenvironment
+
+spatial_analysis:
+  # Neighborhood enrichment
+  neighborhood:
+    enabled: true
+    
+  # Ligand-receptor interactions
+  interactions:
+    enabled: true
+    
+  # Ripley's statistics for spatial patterns
+  ripley:
+    enabled: true
+    
+  # Co-occurrence analysis
+  cooccurrence:
+    enabled: true
+
+# ═══════════════════════════════════════════════════════════════════
+# CUSTOM SPATCH MODULES
+# ═══════════════════════════════════════════════════════════════════
+# SPATCH-specific analyses for the breast cancer sample
+
+custom_modules:
+  user_module_dir: ./user_modules/
+  
+  steps:
+    # ─────────────────────────────────────────────────────────────
+    # Cell Shape Metrics
+    # ─────────────────────────────────────────────────────────────
+    # Morphological analysis - important for distinguishing tumor
+    # from normal epithelium and identifying invasive characteristics
+    - module: cell_shape_metrics
+      enabled: true
+      config:
+        boundaries_key: cell_boundaries
+        table_key: table
+        add_to_table: true
+        metrics:
+          - area
+          - perimeter
+          - circularity
+          - eccentricity
+          - solidity
+          - aspect_ratio
+    
+    # ─────────────────────────────────────────────────────────────
+    # Diffusion Analysis
+    # ─────────────────────────────────────────────────────────────
+    # Quantify transcript diffusion - particularly relevant for
+    # understanding DCIS boundary dynamics
+    - module: diffusion_analysis
+      enabled: true
+      config:
+        table_key: table
+        in_tissue_col: in_tissue
+        buffer_distance_um: 50.0
+        compute_distances: true
+        batch_size: 100000
+
+# ═══════════════════════════════════════════════════════════════════
+# OUTPUT
+# ═══════════════════════════════════════════════════════════════════
+
+output:
+  # Output directory
+  output_dir: ./results/janesick_breast_cancer/
+  
+  # Zarr output
+  zarr_path: ./results/janesick_breast_cancer/processed.zarr
+  
+  # Export formats
+  export:
+    # Export to Xenium Explorer for interactive visualization
+    xenium_explorer: true
+    
+    # Export AnnData tables
+    anndata: true
+    anndata_path: ./results/janesick_breast_cancer/processed_table.h5ad
+    
+    # Export figures
+    figures: true
+    figure_dir: ./results/janesick_breast_cancer/figures/
+    figure_format: png
+    figure_dpi: 300
+
+# ═══════════════════════════════════════════════════════════════════
+# VISUALIZATION
+# ═══════════════════════════════════════════════════════════════════
+
+visualization:
+  # Genes to visualize spatially
+  marker_genes:
+    - FASN      # Invasive tumor marker
+    - CEACAM6   # DCIS marker
+    - ACTA2     # Myoepithelial marker
+    - KRT15     # Myoepithelial marker
+    - POSTN     # Stromal marker
+    - CD3E      # T cell marker
+    - ITGAX     # Macrophage marker
+    - VWF       # Endothelial marker
+    
+  # Plot types to generate
+  plots:
+    - spatial_scatter
+    - umap
+    - cluster_composition
+    - marker_heatmap
+    - neighborhood_enrichment
+    - cell_shape_distributions

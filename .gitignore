@@ -1,0 +1,16 @@
+# Virtual environment (auto-created by setup_environment.sh on macOS)
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store

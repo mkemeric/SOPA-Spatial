@@ -38,7 +38,7 @@ rule to_spatialdata:
     input:
         [] if config["is_toy_reader"] else paths.data_path,
     output:
-        paths.sdata_zgroup if paths.data_path else [],
+        touch(paths.sdata_zgroup) if paths.data_path else [],
     conda:
         "sopa"
     params:

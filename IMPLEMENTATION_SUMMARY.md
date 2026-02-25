@@ -13,43 +13,36 @@
 
 ```
 multiomics/
-├── spatch_modules/              # Custom module library
+├── spatch_modules/              # Custom module library (~400 lines)
 │   ├── __init__.py              # Package exports
 │   ├── base.py                  # SpatchModule ABC + ModuleResult
 │   ├── registry.py              # Module discovery and instantiation
 │   ├── runner.py                # YAML-driven pipeline execution
 │   ├── cli.py                   # Command-line interface
-│   └── builtin/                 # Built-in modules (~400 lines total)
-│       ├── __init__.py
-│       ├── codex_loader.py      # ~300 lines - CODEX data loader
-│       ├── diffusion_analysis.py # ~240 lines - In/out tissue diffusion
-│       ├── gene_protein_correlation.py # ~275 lines - Multi-resolution correlation
-│       └── cell_shape_metrics.py # ~190 lines - Shapely-based morphometry
+│   └── builtin/                 # Built-in modules
+│       ├── codex_loader.py
+│       ├── diffusion_analysis.py
+│       ├── gene_protein_correlation.py
+│       └── cell_shape_metrics.py
 │
 ├── configs/                     # Pipeline configurations
+│   ├── janesick_sopa.yaml      # Sopa-native config for Janesick data
+│   ├── janesick_breast_cancer.yaml # Full config with SPATCH modules
 │   ├── spatch_full.yaml        # Complete annotated config
-│   ├── xenium_example.yaml     # Minimal Xenium workflow
-│   └── multimodal_xenium_codex.yaml # Multi-modal ST + CODEX
-│
-├── samplesheets/                # Batch processing manifests
-│   └── example_multimodal.csv
+│   └── xenium_example.yaml     # Minimal Xenium workflow
 │
 ├── notebooks/                   # Jupyter notebooks
-│   └── 01_spatch_workflow_example.ipynb
+├── user_modules/                # User-contributed modules (auto-discovered)
+├── tests/                       # Module tests
+├── docs/                        # Documentation
 │
-├── user_modules/                # User-contributed modules
-│   └── README.md               # Template and instructions
-│
-├── tests/                       # Module tests (empty - ready for tests)
-├── docs/                        # Additional documentation (empty)
-│
-├── sopa/                        # Cloned Sopa library
-├── spatialdata/                 # Cloned SpatialData library
-│
-├── pyproject.toml              # Package metadata
-├── environment.yml             # Conda environment
-└── README.md                   # Complete project documentation
+├── pyproject.toml              # spatch_modules package metadata
+├── environment.yml             # Conda environment spec
+├── setup_environment.sh        # Automated setup script
+└── setup_local_imports.py      # Notebook environment helper
 ```
+
+Note: `sopa` and `spatialdata` are installed as stock packages from PyPI — no local clones needed.
 
 ## Custom Modules Implemented
 
@@ -111,16 +104,17 @@ multiomics/
 - **Composable**: Modules can be mixed and matched per workflow
 
 ### Integration with SpatialData/Sopa
-- **Native SpatialData I/O**: Uses built-in readers for 5/6 platforms
+- **Stock packages from PyPI**: No local forks — sopa, spatialdata, spatialdata-io installed directly
+- **Sopa pipeline**: Snakemake workflow + CLI for config-driven end-to-end processing
+- **Native SpatialData I/O**: Built-in readers for Xenium, MERSCOPE, CosMx, Visium HD, etc.
 - **Zarr storage**: Single persistent store for all data
-- **Coordinate system aware**: Respects SpatialData transformations
 - **Table-centric**: Works with standard AnnData tables in sdata.tables
 
 ### Code Reuse Strategy
 - **~400 lines custom code** (88% reduction from ~4,000 lines)
-- **Preserved functionality**: All 10 SPATCH analysis stages covered
-- **Maintained libraries**: Sopa/SpatialData handle heavy lifting
-- **Standard tools**: scanpy, squidpy, shapely for analysis
+- **Zero vendored dependencies**: sopa and spatialdata from PyPI, no build/version issues
+- **Preserved functionality**: All SPATCH-specific analyses available as plug-in modules
+- **Standard tools**: scanpy, squidpy, shapely for downstream analysis
 
 ## Configuration Files
 
@@ -187,13 +181,10 @@ spatch-modules run \
 ## Installation
 
 ```bash
-# Create environment
-conda env create -f environment.yml
-conda activate spatch
-
-# Install package
-pip install -e .
+./setup_environment.sh
 ```
+
+Installs stock sopa + spatialdata from PyPI, plus spatch_modules in editable mode.
 
 ## Comparison to Original SPATCH
 
