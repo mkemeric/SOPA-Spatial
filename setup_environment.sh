@@ -158,6 +158,7 @@ pip_install_missing "Analysis packages" \
     matplotlib \
     seaborn \
     scikit-learn \
+    scikit-misc \
     scipy \
     pyyaml \
     jupyter \
