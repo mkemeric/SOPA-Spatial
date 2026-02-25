@@ -136,10 +136,10 @@ echo "========================================"
 echo "Step 1: Installing core spatial packages"
 echo "========================================"
 pip_install_missing "Core spatial packages" \
-    "sopa>=2.1" \
     "spatialdata>=0.6" \
     "spatialdata-io>=0.2" \
     "spatialdata-plot>=0.2.14,<0.3"
+# Note: sopa is installed locally in Step 3a below instead of from PyPI
 
 echo ""
 echo "========================================"
@@ -150,6 +150,7 @@ pip_install_missing "Analysis packages" \
     "squidpy>=1.5" \
     "cellpose>=3.0" \
     "snakemake>=8.0" \
+    "boto3>=1.35.40" \
     matplotlib \
     seaborn \
     scikit-learn \
@@ -160,7 +161,24 @@ pip_install_missing "Analysis packages" \
 
 echo ""
 echo "========================================"
-echo "Step 3: Installing SPATCH modules"
+echo "Step 3a: Installing local SOPA package"
+echo "========================================"
+if [ -d "sopa" ]; then
+    if $PYTHON -c "import sopa" 2>/dev/null; then
+        echo "✓ sopa already installed, skipping."
+    else
+        echo "Installing sopa in editable mode from ./sopa/..."
+        $PIP install -e ./sopa/
+        echo "✓ sopa installed"
+    fi
+else
+    echo "⚠️  WARNING: sopa/ directory not found, falling back to PyPI"
+    pip_install_missing "sopa (PyPI fallback)" "sopa>=2.1"
+fi
+
+echo ""
+echo "========================================"
+echo "Step 3b: Installing SPATCH modules"
 echo "========================================"
 if [ -f "pyproject.toml" ]; then
     if $PYTHON -c "import spatch_modules" 2>/dev/null; then
