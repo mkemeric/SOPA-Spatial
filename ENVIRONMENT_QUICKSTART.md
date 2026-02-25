@@ -29,7 +29,10 @@ python3 setup_local_imports.py
 # Convert Xenium data to SpatialData
 sopa convert ../data/outs/ --sdata-path results/janesick.zarr --technology xenium
 
-# Segment, aggregate, preprocess
+# Create image patches (required before segmentation)
+sopa patchify image results/janesick.zarr --patch-width-pixel 2048 --patch-overlap-pixel 100
+
+# Segment, aggregate
 sopa segmentation cellpose results/janesick.zarr --diameter 35 --channels DAPI
 sopa aggregate results/janesick.zarr --min-transcripts 10
 ```

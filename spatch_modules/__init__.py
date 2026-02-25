@@ -7,7 +7,7 @@ built on the SpatialData + Sopa platform.
 
 from .base import SpatchModule, ModuleResult
 from .registry import register, get_module, list_modules, discover_user_modules
-from .runner import run_custom_pipeline
+from .runner import run_custom_pipeline, run_single_module
 
 __version__ = "1.0.0"
 
@@ -19,6 +19,7 @@ __all__ = [
     "list_modules",
     "discover_user_modules",
     "run_custom_pipeline",
+    "run_single_module",
 ]
 
 # Auto-discover builtin modules on import
