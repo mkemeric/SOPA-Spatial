@@ -181,6 +181,7 @@ echo "========================================"
 $PYTHON -c "
 import sys
 import importlib
+import importlib.metadata
 
 packages = [
     ('spatialdata', 'sd'),
@@ -196,8 +197,11 @@ print('-' * 70)
 all_ok = True
 for pkg_name, alias in packages:
     try:
-        mod = importlib.import_module(pkg_name)
-        version = getattr(mod, '__version__', '?')
+        importlib.import_module(pkg_name)
+        try:
+            version = importlib.metadata.version(pkg_name)
+        except importlib.metadata.PackageNotFoundError:
+            version = '?'
         print(f'{pkg_name:20s} ✓  v{version}')
     except ImportError as e:
         print(f'{pkg_name:20s} ✗  {str(e)}')

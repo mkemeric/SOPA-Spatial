@@ -42,8 +42,11 @@ def verify_imports(verbose=True):
 
     for pkg_name in packages:
         try:
-            mod = importlib.import_module(pkg_name)
-            version = getattr(mod, '__version__', '?')
+            importlib.import_module(pkg_name)
+            try:
+                version = importlib.metadata.version(pkg_name)
+            except importlib.metadata.PackageNotFoundError:
+                version = '?'
             status[pkg_name] = {'importable': True, 'version': version}
             if verbose:
                 print(f"  {pkg_name:20s} \u2713  v{version}")
