@@ -135,6 +135,10 @@ echo ""
 echo "========================================"
 echo "Step 1: Installing core spatial packages"
 echo "========================================"
+# Pin numpy<2 — many compiled deps (pyarrow, scikit-image, etc.) are
+# built against the numpy 1.x ABI and crash with numpy 2.x.
+pip_install_missing "NumPy compatibility" "numpy>=1.24,<2"
+
 pip_install_missing "Core spatial packages" \
     "spatialdata>=0.6" \
     "spatialdata-io>=0.2" \
@@ -190,6 +194,20 @@ if [ -f "pyproject.toml" ]; then
     fi
 else
     echo "⚠️  WARNING: pyproject.toml not found"
+fi
+
+# ── Step 3c: Register Jupyter kernel ────────────────────────────
+# Ensures the current environment is available as a Jupyter kernel
+# so notebooks can find all installed packages.
+if command -v jupyter >/dev/null 2>&1; then
+    KERNEL_NAME="spatch"
+    echo ""
+    echo "========================================"
+    echo "Step 3c: Registering Jupyter kernel"
+    echo "========================================"
+    $PYTHON -m ipykernel install --user --name "$KERNEL_NAME" --display-name "SPATCH" 2>/dev/null \
+        && echo "✓ Jupyter kernel '$KERNEL_NAME' registered" \
+        || echo "⚠️  Could not register Jupyter kernel (non-fatal)"
 fi
 
 echo ""
