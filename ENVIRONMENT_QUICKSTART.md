@@ -26,16 +26,21 @@ python3 setup_local_imports.py
 ### Option A: Sopa CLI (standard pipeline)
 
 ```bash
-# Convert Xenium data to SpatialData
+# 1. Convert Xenium data to SpatialData
 sopa convert ../data/outs/ --sdata-path results/janesick.zarr --technology xenium
 
-# Create image patches (required before segmentation)
+# 2. Create image patches (required before segmentation)
 sopa patchify image results/janesick.zarr --patch-width-pixel 2048 --patch-overlap-pixel 100
 
-# Segment, aggregate
-sopa segmentation cellpose results/janesick.zarr --diameter 35 --channels DAPI
+# 3. Segment with cellpose (--gpu strongly recommended, ~50x faster)
+sopa segmentation cellpose results/janesick.zarr --diameter 35 --channels DAPI --gpu
+
+# 4. Aggregate transcript counts per cell
 sopa aggregate results/janesick.zarr --min-transcripts 10
 ```
+
+> **GPU note:** Without `--gpu`, cellpose runs ~600s/patch (~40+ hours for a full slide).
+> With `--gpu`, it drops to ~10-12s/patch (~42 minutes).
 
 ### Option B: Sopa Snakemake (full automated pipeline)
 
