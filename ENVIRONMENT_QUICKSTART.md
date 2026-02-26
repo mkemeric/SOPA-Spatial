@@ -48,11 +48,11 @@ sopa aggregate results/janesick.zarr --min-transcripts 10
 snakemake --snakefile sopa/workflow/Snakefile \
   --configfile configs/janesick_sopa.yaml \
   --config data_path=../data/outs/ sdata_path=results/janesick.zarr \
-  --cores 4 --no-use-conda
+  --cores 4
 ```
 
-> **Note:** `--no-use-conda` runs all steps in the current environment
-> (which already has everything installed via `setup_environment.sh`).
+> **Note:** Do not use `--use-conda` — all dependencies are already
+> installed in the current environment via `setup_environment.sh`.
 
 ### Option C: Notebook (interactive exploration + SPATCH modules)
 

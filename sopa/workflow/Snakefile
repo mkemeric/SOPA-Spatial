@@ -47,7 +47,7 @@ rule to_spatialdata:
         sdata_path = paths.sdata_path,
     shell:
         """
-        sopa convert {params.data_path} --sdata-path {params.sdata_path} {params.reader}
+        sopa convert {params.data_path} --sdata-path {params.sdata_path} --overwrite {params.reader}
         """
 
 rule tissue_segmentation:
