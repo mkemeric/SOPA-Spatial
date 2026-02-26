@@ -131,15 +131,19 @@ This creates ~250–300 patches (depending on tissue size). Takes ~1 minute.
 **Step 3 — Segment** cells using the cellpose deep-learning model:
 
 ```bash
+# Enable Dask parallel backend (processes all patches concurrently)
+export SOPA_PARALLELIZATION_BACKEND=dask
+
 sopa segmentation cellpose results/janesick.zarr \
   --diameter 35 \
   --channels DAPI \
   --gpu
 ```
 
-> **⚠️ GPU is strongly recommended.** With `--gpu`: ~10–12 sec/patch
-> (~42 minutes total). Without `--gpu`: ~600 sec/patch (~40+ hours).
-> If you do not have a GPU, remove `--gpu` but expect a very long run.
+> **⚠️ GPU is strongly recommended.** With `--gpu` + Dask: ~15 minutes
+> total for ~266 patches. Without Dask: ~42 minutes. Without GPU:
+> ~600 sec/patch (~40+ hours). If you do not have a GPU, remove
+> `--gpu` but expect a very long run.
 
 **Step 4 — Aggregate** transcript counts per cell (filters out cells with
 fewer than 10 transcripts):
@@ -169,6 +173,9 @@ conda activate spatch   # if using conda
 **Run the pipeline:**
 
 ```bash
+# Enable Dask parallel backend for faster segmentation
+export SOPA_PARALLELIZATION_BACKEND=dask
+
 snakemake \
   --snakefile sopa/workflow/Snakefile \
   --configfile configs/janesick_sopa.yaml \
@@ -183,8 +190,8 @@ snakemake \
 - `--cores 4` — number of parallel jobs (increase if you have more CPUs)
 
 The config file (`configs/janesick_sopa.yaml`) already includes `gpu: true`
-for cellpose. Snakemake will print each step as it runs. The full pipeline
-takes roughly 45–60 minutes with a GPU.
+for cellpose. Snakemake will print each step as it runs. With Dask + GPU,
+the full pipeline takes roughly 20–30 minutes.
 
 > **Note:** Do not add `--use-conda` — all dependencies are already
 > installed in your environment. Adding it will cause errors.
