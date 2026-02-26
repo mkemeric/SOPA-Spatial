@@ -160,6 +160,7 @@ pip_install_missing "Analysis packages" \
     scikit-learn \
     scikit-misc \
     scipy \
+    leidenalg \
     pyyaml \
     jupyter \
     ipykernel
