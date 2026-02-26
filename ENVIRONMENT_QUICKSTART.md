@@ -3,11 +3,12 @@
 ## Install
 
 ```bash
-cd /Users/mike/projects/University_of_Rochester/multiomics
+git clone https://github.com/mkemeric/SOPA-Spatial.git
+cd SOPA-Spatial
 ./setup_environment.sh
 ```
 
-This installs stock `sopa`, `spatialdata`, and `spatialdata-io` from PyPI, plus `spatch_modules` in editable mode. On macOS with Homebrew Python, a `.venv/` is created automatically.
+This installs `sopa`, `spatialdata`, `spatialdata-io`, analysis dependencies, and `spatch_modules` in editable mode. On conda/mamba systems a `spatch` environment is created; on macOS with Homebrew Python, a `.venv/` is created automatically.
 
 ## Verify
 
@@ -57,6 +58,7 @@ snakemake --snakefile sopa/workflow/Snakefile \
 ### Option C: Notebook (interactive exploration + SPATCH modules)
 
 Open `notebooks/02_janesick_breast_cancer_analysis.ipynb` and run cells sequentially.
+Select the **SPATCH** kernel (registered by `setup_environment.sh`).
 
 Add this cell at the top of the notebook:
 

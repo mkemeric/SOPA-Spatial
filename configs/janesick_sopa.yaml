@@ -26,6 +26,7 @@ segmentation:
     cellprob_threshold: -6
     model_type: cyto2
     min_area: 400
+    gpu: true              # ~50x faster (required for practical runtimes)
 
 aggregate:
   aggregate_channels: true
