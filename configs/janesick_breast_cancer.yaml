@@ -5,8 +5,8 @@
 
 technology: xenium
 
-# Input data path (update this to your data location)
-data_path: ../data/outs/
+# Input data path (absolute path to Xenium data)
+data_path: /mnt/shared/janesick/input
 
 # ═══════════════════════════════════════════════════════════════════
 # SEGMENTATION (using existing Xenium segmentation)

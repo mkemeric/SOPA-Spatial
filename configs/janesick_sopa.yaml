@@ -4,10 +4,10 @@
 # Source: https://github.com/10XGenomics/janesick_nature_comms_2023_companion
 #
 # Usage (Snakemake):
-#   snakemake --configfile configs/janesick_sopa.yaml --config data_path=../data/outs/
+#   snakemake --configfile configs/janesick_sopa.yaml
 #
 # Usage (CLI):
-#   sopa convert ../data/outs/ --sdata-path results/janesick.zarr --technology xenium
+#   sopa convert /mnt/shared/janesick/input --sdata-path results/janesick.zarr --technology xenium
 #   sopa segmentation cellpose results/janesick.zarr --diameter 35 --channels DAPI
 #   sopa aggregate results/janesick.zarr --min-transcripts 10
 
