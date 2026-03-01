@@ -63,22 +63,20 @@ python3 setup_local_imports.py
 
 ## 3. Prepare Your Data
 
-The pipeline expects a Xenium `outs/` directory. Create a symlink or copy
-it so the project can find it:
+The pipeline expects a Xenium output directory. For the Janesick breast cancer
+dataset, the data is located at:
 
 ```bash
-cd SOPA-Spatial
-mkdir -p data
-ln -sf /path/to/your/xenium/outs data/outs
+/mnt/shared/janesick/input
 ```
 
-Replace `/path/to/your/xenium/outs` with the actual path on your system.
-For example: `ln -sf /home/user/shared/janesick/input/outs data/outs`
+No symlink or copying is needed - you can reference this path directly in all
+commands below.
 
-Verify it worked:
+Verify the data is accessible:
 
 ```bash
-ls data/outs/experiment.xenium
+ls /mnt/shared/janesick/input/experiment.xenium
 ```
 
 You should see the file listed without errors.
@@ -109,12 +107,12 @@ conda activate spatch   # if using conda
 store that all downstream tools understand):
 
 ```bash
-sopa convert data/outs/ \
+sopa convert /mnt/shared/janesick/input \
   --sdata-path results/janesick.zarr \
   --technology xenium
 ```
 
-This reads the Xenium `outs/` directory and writes a `results/janesick.zarr`
+This reads the Xenium input directory and writes a `results/janesick.zarr`
 folder. Expect this to take 1–3 minutes.
 
 **Step 2 — Patchify** the tissue image into overlapping tiles so cellpose
@@ -179,7 +177,7 @@ export SOPA_PARALLELIZATION_BACKEND=dask
 snakemake \
   --snakefile sopa/workflow/Snakefile \
   --configfile configs/janesick_sopa.yaml \
-  --config data_path=data/outs/ sdata_path=results/janesick.zarr \
+  --config data_path=/mnt/shared/janesick/input sdata_path=results/janesick.zarr \
   --cores 4
 ```
 
@@ -202,7 +200,7 @@ the full pipeline takes roughly 20–30 minutes.
 snakemake \
   --snakefile sopa/workflow/Snakefile \
   --configfile configs/janesick_sopa.yaml \
-  --config data_path=data/outs/ sdata_path=results/janesick.zarr \
+  --config data_path=/mnt/shared/janesick/input sdata_path=results/janesick.zarr \
   --cores 4 --dry-run
 ```
 

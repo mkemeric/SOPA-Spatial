@@ -43,7 +43,7 @@ sopa aggregate results/output.zarr --min-transcripts 10
 ```bash
 snakemake --snakefile sopa/workflow/Snakefile \
   --configfile configs/janesick_sopa.yaml \
-  --config data_path=/path/to/xenium_output/ \
+  --config data_path=/mnt/shared/janesick/input \
   --cores 4
 ```
 
@@ -198,7 +198,7 @@ Sopa ships a Snakemake workflow that handles the full pipeline. See `configs/jan
 ```bash
 snakemake --snakefile sopa/workflow/Snakefile \
   --configfile configs/janesick_sopa.yaml \
-  --config data_path=/data/xenium_001 \
+  --config data_path=/mnt/shared/janesick/input \
   --cores 4
 ```
 
