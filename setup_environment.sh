@@ -170,8 +170,21 @@ echo "========================================"
 echo "Step 3a: Installing local SOPA package"
 echo "========================================"
 if [ -d "sopa" ]; then
-    if $PYTHON -c "import sopa" 2>/dev/null; then
-        echo "✓ sopa already installed, skipping."
+    # Use pip show (not import) — "import sopa" succeeds from the project
+    # root because Python treats the sopa/ directory as an implicit namespace
+    # package, even when sopa is not pip-installed. This silently skips the
+    # editable install, leaving the CLI entry point unregistered.
+    SOPA_LOCATION=$($PIP show sopa 2>/dev/null | grep -i '^Location:' | awk '{print $2}')
+    if [[ -n "$SOPA_LOCATION" ]]; then
+        # Sopa is pip-installed — but is it our local editable copy?
+        SOPA_EDITABLE=$($PIP show -f sopa 2>/dev/null | grep -c 'direct_url.json' || true)
+        if [[ "$SOPA_EDITABLE" -gt 0 ]]; then
+            echo "✓ sopa already installed (editable), skipping."
+        else
+            echo "sopa is installed from PyPI — replacing with local editable install..."
+            $PIP install -e ./sopa/
+            echo "✓ sopa reinstalled (editable mode from ./sopa/)"
+        fi
     else
         echo "Installing sopa in editable mode from ./sopa/..."
         $PIP install -e ./sopa/
@@ -222,6 +235,7 @@ $PYTHON -c "
 import sys
 import importlib
 import importlib.metadata
+import subprocess
 
 packages = [
     ('spatialdata', 'sd'),
@@ -237,21 +251,29 @@ print('-' * 70)
 all_ok = True
 for pkg_name, alias in packages:
     try:
-        importlib.import_module(pkg_name)
-        try:
-            version = importlib.metadata.version(pkg_name)
-        except importlib.metadata.PackageNotFoundError:
-            version = '?'
-        print(f'{pkg_name:20s} ✓  v{version}')
-    except ImportError as e:
-        print(f'{pkg_name:20s} ✗  {str(e)}')
+        version = importlib.metadata.version(pkg_name)
+        print(f'{pkg_name:20s} \u2713  v{version}')
+    except importlib.metadata.PackageNotFoundError:
+        # Bare 'import' can give false positives for local directories
+        # (namespace packages). Only trust pip metadata.
+        print(f'{pkg_name:20s} \u2717  not installed (pip show {pkg_name} failed)')
         all_ok = False
 
 print('-' * 70)
-if all_ok:
-    print('All packages imported successfully!')
+
+# Extra check: verify sopa CLI entry point was registered
+import shutil
+if shutil.which('sopa'):
+    print('sopa CLI:            \u2713  ' + shutil.which('sopa'))
 else:
-    print('Some packages failed to import.')
+    print('sopa CLI:            \u2717  not found in PATH')
+    all_ok = False
+
+print('-' * 70)
+if all_ok:
+    print('All packages installed and verified!')
+else:
+    print('Some packages failed verification.')
     sys.exit(1)
 "
 
