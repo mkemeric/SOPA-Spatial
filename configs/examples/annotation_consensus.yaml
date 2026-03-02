@@ -1,0 +1,55 @@
+# Annotation Consensus Module - Example Configuration
+# Run multiple cell-type annotation tools and majority-vote the results.
+#
+# Each tool is optional — only install the ones you enable.
+# Requires at minimum: pip install spatch-modules[annotation]
+#
+# Usage:
+#   spatch-modules run -i data.zarr -c configs/examples/annotation_consensus.yaml
+
+custom_modules:
+  steps:
+    - module: annotation_consensus
+      enabled: true
+      config:
+        table_key: table
+
+        # scRNA-seq reference (shared by most tools)
+        reference_path: /data/references/scrnaseq_reference.h5ad
+        reference_celltype_key: major
+
+        # Final consensus column name
+        consensus_col: cell_type_consensus
+        unknown_label: unknown
+
+        # ── Tool configuration ─────────────────────────────────────
+        tools:
+          # Tangram (pip install tangram-sc)
+          tangram:
+            enabled: true
+            device: cpu               # or "cuda:0"
+            # markers: null            # null = auto-compute top-50 DEGs
+
+          # CellTypist (pip install celltypist)
+          celltypist:
+            enabled: true
+            # Pre-trained model name or path:
+            model: Immune_All_Low.pkl
+            n_jobs: 10
+
+          # TACCO (pip install tacco)
+          tacco:
+            enabled: true
+
+          # Spoint (install manually)
+          spoint:
+            enabled: false
+            use_gpu: false
+            max_steps: 5000
+            batch_size: 1024
+
+          # Selina (provide path to local clone)
+          selina:
+            enabled: false
+            selina_path: /path/to/Selina
+            device: cpu

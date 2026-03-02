@@ -187,6 +187,100 @@ custom_modules:
         table_key: table
         add_to_table: true
 
+    # ─────────────────────────────────────────────────────────────
+    # Grid Binning
+    # ─────────────────────────────────────────────────────────────
+    # Bin spatial data to a uniform grid for cross-platform comparison
+    - module: grid_binning
+      enabled: true
+      config:
+        mode: transcript
+        target_resolution_um: 8.0
+        source_resolution_um: 0.2125
+        x_col: x_location
+        y_col: y_location
+        gene_col: feature_name
+        output_key: binned_8um
+
+    # ─────────────────────────────────────────────────────────────
+    # DAPI Tissue Mask
+    # ─────────────────────────────────────────────────────────────
+    # Generate tissue boundary from DAPI and tag cells as in/out
+    - module: dapi_tissue_mask
+      enabled: true
+      config:
+        channel: 0
+        kernel_width: 500
+        dilate_iterations: 2
+        erode_iterations: 1
+        table_key: table
+        coord_key: spatial
+        output_shapes_key: tissue_boundary
+        in_tissue_col: in_tissue
+
+    # ─────────────────────────────────────────────────────────────
+    # Image Registration
+    # ─────────────────────────────────────────────────────────────
+    # Landmark-based registration between ST and CODEX images
+    - module: image_registration
+      enabled: false  # Enable for multi-modal with CODEX
+      config:
+        fixed_image_key: morphology_focus
+        fixed_resolution: 0.12
+        moving_image_key: codex_image
+        codex_resolution: 0.5
+        landmark_dir: /data/landmarks/
+        fixed_landmark_file: st-points.tsv
+        moving_landmark_file: codex-points.tsv
+        platform: nano
+        n_iterations: 500
+        apply_to_table: table
+        coord_key: spatial
+        registered_coord_key: codex_registered
+
+    # ─────────────────────────────────────────────────────────────
+    # Annotation Consensus
+    # ─────────────────────────────────────────────────────────────
+    # Multi-tool annotation with majority-vote consensus
+    - module: annotation_consensus
+      enabled: false  # Enable and configure tools below
+      config:
+        table_key: table
+        reference_path: /data/references/scrnaseq_reference.h5ad
+        reference_celltype_key: major
+        consensus_col: cell_type_consensus
+        tools:
+          tangram:
+            enabled: true
+            device: cpu
+          celltypist:
+            enabled: true
+            model: Immune_All_Low.pkl
+            n_jobs: 10
+          tacco:
+            enabled: true
+          spoint:
+            enabled: false
+          selina:
+            enabled: false
+
+    # ─────────────────────────────────────────────────────────────
+    # Spatial Clustering
+    # ─────────────────────────────────────────────────────────────
+    # CellCharter spatial clustering with latent embeddings
+    - module: spatial_cluster
+      enabled: true
+      config:
+        table_key: table
+        coord_key: spatial
+        data_type: transcriptome
+        n_layers: 5
+        n_clusters: null
+        max_runs: 10
+        use_gpu: false
+        cluster_col: spatial_cluster
+        random_state: 12345
+
 # ═══════════════════════════════════════════════════════════════════
 # OUTPUT
 # ═══════════════════════════════════════════════════════════════════

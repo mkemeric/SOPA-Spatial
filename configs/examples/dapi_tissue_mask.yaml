@@ -1,0 +1,35 @@
+# DAPI Tissue Mask Module - Example Configuration
+# Generate a tissue boundary from DAPI fluorescence and tag cells.
+#
+# Requires: pip install spatch-modules[imaging]
+#
+# Usage:
+#   spatch-modules run -i data.zarr -c configs/examples/dapi_tissue_mask.yaml
+
+custom_modules:
+  steps:
+    - module: dapi_tissue_mask
+      enabled: true
+      config:
+        # Image to process (null = first available)
+        image_key: null
+
+        # DAPI channel index (0 for most platforms)
+        channel: 0
+
+        # Morphological kernel width (pixels).
+        # Larger values → smoother boundary, fills larger gaps.
+        # Xenium (~500), CosMx (~1000), Stereo-seq (~200)
+        kernel_width: 500
+
+        # Morphological iterations
+        dilate_iterations: 2
+        erode_iterations: 1
+
+        # Cell/spot table to tag with in_tissue column
+        table_key: table
+        coord_key: spatial
+
+        # Output
+        output_shapes_key: tissue_boundary
+        in_tissue_col: in_tissue

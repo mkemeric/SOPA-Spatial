@@ -1,0 +1,44 @@
+# Grid Binning Module - Example Configuration
+# Bin spatial data to a uniform resolution grid for cross-platform comparison.
+#
+# Usage:
+#   spatch-modules run -i data.zarr -c configs/examples/grid_binning.yaml
+
+custom_modules:
+  steps:
+    # ── Transcript-level binning (Xenium) ──────────────────────────
+    # Aggregates raw transcript coordinates into 8 µm grid bins.
+    - module: grid_binning
+      enabled: true
+      config:
+        mode: transcript                # "transcript" or "table"
+        target_resolution_um: 8.0       # Grid cell size in µm
+        source_resolution_um: 0.2125    # Xenium: ~0.2125 µm/px
+        x_col: x_location               # Column in transcript DataFrame
+        y_col: y_location
+        gene_col: feature_name
+        output_key: binned_8um          # Key in sdata.tables
+
+    # ── Table-level rebinning (Visium HD) ──────────────────────────
+    # Rebins an existing cell/spot-level table to a coarser grid.
+    # - module: grid_binning
+    #   enabled: true
+    #   config:
+    #     mode: table
+    #     target_resolution_um: 8.0
+    #     source_resolution_um: 1.0     # 1.0 if coords already in µm
+    #     table_key: table
+    #     coord_key: spatial
+    #     output_key: binned_8um
+
+    # ── CosMx transcript binning ───────────────────────────────────
+    # - module: grid_binning
+    #   enabled: true
+    #   config:
+    #     mode: transcript
+    #     target_resolution_um: 8.0
+    #     source_resolution_um: 0.12    # CosMx: ~0.12 µm/px
+    #     x_col: x_global_px
+    #     y_col: y_global_px
+    #     gene_col: target
+    #     output_key: binned_8um_cosmx

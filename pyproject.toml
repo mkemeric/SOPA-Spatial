@@ -58,6 +58,21 @@ segmentation = [
 annotation = [
     "tangram-sc>=1.0",
     "celltypist>=1.6",
+    "tacco>=0.3",
+]
+
+registration = [
+    "SimpleITK>=2.3",
+]
+
+imaging = [
+    "opencv-python-headless>=4.8",
+]
+
+spatial_clustering = [
+    "scvi-tools>=1.0",
+    "cellcharter>=0.3",
+    "scarches>=0.6",
 ]
 
 visualization = [
@@ -67,7 +82,7 @@ visualization = [
 ]
 
 all = [
-    "spatch-modules[dev,segmentation,annotation,visualization]",
+    "spatch-modules[dev,segmentation,annotation,registration,imaging,spatial_clustering,visualization]",
 ]
 
 [project.scripts]

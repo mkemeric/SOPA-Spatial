@@ -1,0 +1,45 @@
+# Image Registration Module - Example Configuration
+# Landmark-based SimpleITK registration between ST DAPI and CODEX images.
+#
+# Requires: pip install spatch-modules[registration]
+#
+# Landmark files should be TSV with columns: x, y
+# Export from napari (napari-spatialdata) or QuPath.
+#
+# Usage:
+#   spatch-modules run -i data.zarr -c configs/examples/image_registration.yaml
+
+custom_modules:
+  steps:
+    - module: image_registration
+      enabled: true
+      config:
+        # Fixed image (the reference, e.g. ST DAPI)
+        fixed_image_key: morphology_focus
+        fixed_resolution: 0.12          # µm/px for the fixed image
+
+        # Moving image (to be aligned, e.g. CODEX)
+        moving_image_key: codex_image
+        codex_resolution: 0.5           # µm/px for the CODEX image
+
+        # Landmark files directory
+        landmark_dir: /data/landmarks/COAD/
+        fixed_landmark_file: nano.tif-points.tsv
+        moving_landmark_file: codex.tif-points.tsv
+
+        # Platform affects landmark preprocessing
+        # "nano" applies a y-flip; use "xenium" for Xenium data
+        platform: nano
+
+        # Optimizer iterations
+        n_iterations: 500
+
+        # Apply transform to cell coordinates
+        apply_to_table: table
+        coord_key: spatial
+        registered_coord_key: codex_registered
+
+        # Optionally save the registered CODEX image
+        save_registered_image: false
+        output_image_key: codex_registered
+        # output_tiff_path: /data/output/codex_registered.tif

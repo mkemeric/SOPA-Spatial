@@ -1,0 +1,52 @@
+# Spatial Cluster Module - Example Configuration
+# CellCharter spatial clustering with latent embeddings and optional
+# cross-platform cluster proportion correlation.
+#
+# Requires: pip install spatch-modules[spatial_clustering]
+#
+# Usage:
+#   spatch-modules run -i data.zarr -c configs/examples/spatial_cluster.yaml
+
+custom_modules:
+  steps:
+    # ── Transcriptome spatial clustering (scVI + CellCharter) ──────
+    - module: spatial_cluster
+      enabled: true
+      config:
+        table_key: table
+        coord_key: spatial
+
+        # "transcriptome" uses scVI; "protein" uses TRVAE
+        data_type: transcriptome
+
+        # CellCharter neighbor aggregation layers
+        n_layers: 5
+
+        # Cluster count: null = auto (5-10), int = fixed, [min, max] = range
+        n_clusters: null
+        max_runs: 10
+
+        # GPU (requires CUDA)
+        use_gpu: false
+
+        # Output column
+        cluster_col: spatial_cluster
+        random_state: 12345
+
+        # ── Cross-platform correlation (optional) ──────────────────
+        # Compare cluster proportions between ST and CODEX on a common grid.
+        # reference_table_key: codex_table
+        # reference_cluster_col: spatial_cluster
+        # correlation_grid_size: 100.0
+
+    # ── Protein spatial clustering (TRVAE + CellCharter) ───────────
+    # - module: spatial_cluster
+    #   enabled: true
+    #   config:
+    #     table_key: codex_table
+    #     coord_key: spatial
+    #     data_type: protein
+    #     n_layers: 5
+    #     n_clusters: null
+    #     cluster_col: spatial_cluster
+    #     use_gpu: false
