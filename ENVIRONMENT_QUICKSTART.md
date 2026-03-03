@@ -79,7 +79,7 @@ The pipeline expects a Xenium output directory. For the Janesick breast cancer
 dataset, the data is located at:
 
 ```bash
-/mnt/shared/janesick/input
+/mnt/shared/janesick/input/outs
 ```
 
 No symlink or copying is needed - you can reference this path directly in all
@@ -88,7 +88,7 @@ commands below.
 Verify the data is accessible:
 
 ```bash
-ls /mnt/shared/janesick/input/experiment.xenium
+ls /mnt/shared/janesick/input/outs/experiment.xenium
 ```
 
 You should see the file listed without errors.
@@ -119,7 +119,7 @@ conda activate spatch   # if using conda
 store that all downstream tools understand):
 
 ```bash
-sopa convert /mnt/shared/janesick/input \
+sopa convert /mnt/shared/janesick/input/outs \
   --sdata-path results/janesick.zarr \
   --technology xenium
 ```
@@ -282,9 +282,24 @@ sdata = sd.read_zarr("results/janesick.zarr")
 results = run_custom_pipeline(sdata, "configs/janesick_breast_cancer.yaml")
 ```
 
-This runs:
-- **diffusion_analysis** — quantifies transcript diffusion from in-tissue to out-of-tissue regions
-- **cell_shape_metrics** — computes morphological metrics (area, circularity, eccentricity, etc.)
+The pipeline config (`configs/janesick_breast_cancer.yaml`) runs three
+modules in order:
+
+1. **dapi_tissue_mask** — generates a tissue boundary polygon from the
+   DAPI image and tags each cell as `in_tissue = 0|1`. This is a
+   prerequisite for diffusion analysis. Requires `opencv-python-headless`
+   (install with `pip install opencv-python-headless` if not present).
+2. **cell_shape_metrics** — computes morphological metrics (area,
+   circularity, eccentricity, solidity, aspect ratio) from cell boundary
+   polygons. Auto-discovers the boundary shapes key from sopa output
+   (e.g. `cellpose_boundaries`).
+3. **diffusion_analysis** — compares in-tissue vs out-of-tissue transcript
+   counts to quantify signal diffusion per gene.
+
+**Expected output** (Janesick breast cancer dataset):
+- ~218,966 cells tagged in-tissue by `dapi_tissue_mask`
+- ~218,983 cells with shape metrics (mean circularity ~0.86)
+- 313 genes analyzed for diffusion
 
 You can also run individual modules interactively:
 
@@ -335,6 +350,20 @@ Re-register it:
 conda activate spatch
 python3 -m ipykernel install --user --name spatch --display-name "SPATCH"
 ```
+
+**"opencv-python-headless is required" (dapi_tissue_mask):**
+The DAPI tissue mask module needs OpenCV. Install it:
+```bash
+conda activate spatch
+pip install opencv-python-headless
+```
+
+**cell_shape_metrics skipped — no cell_boundaries:**
+Different segmentation methods store boundaries under different keys
+(e.g. `cellpose_boundaries`). The module auto-discovers any shapes key
+containing "boundaries". If it still fails, check your zarr's available
+shapes keys and set `boundaries_key` in
+`configs/janesick_breast_cancer.yaml` accordingly.
 
 ---
 
