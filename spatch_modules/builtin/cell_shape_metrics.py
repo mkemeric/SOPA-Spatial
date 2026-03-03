@@ -87,6 +87,9 @@ class CellShapeMetrics(SpatchModule):
         """
         log = []
         
+        # Prefer the auto-discovered key from validate_inputs()
+        boundaries_key = self.config.get("boundaries_key", boundaries_key)
+        
         # Get cell boundaries
         if boundaries_key not in sdata.shapes:
             raise ValueError(f"Shapes '{boundaries_key}' not found in sdata")

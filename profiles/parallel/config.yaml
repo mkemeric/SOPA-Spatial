@@ -1,0 +1,11 @@
+# Snakemake profile for parallel execution on multi-core machines.
+# Usage: snakemake --workflow-profile ../../profiles/parallel ...
+#   or:  snakemake --profile profiles/parallel ...
+
+cores: 16
+use-conda: true
+printshellcmds: true
+latency-wait: 60
+keep-going: true
+rerun-incomplete: true
+scheduler: greedy
