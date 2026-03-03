@@ -16,6 +16,18 @@ You need:
   the classic Notebook home page)
 - Xenium output data (the `outs/` directory from a 10x Xenium run)
 - **GPU access** for cell segmentation (CPU works but is ~50× slower)
+- **~15 GB free disk space** for the conda environment and package cache
+
+> **Storage note:** Many HPC / container environments have a small home
+> directory quota (e.g. 10 GB). The setup script automatically detects
+> this and redirects conda environments, pip cache, and Jupyter data to
+> a larger volume (`/mnt/user`, `/scratch`, or `$TMPDIR`). To force a
+> specific location, set `SPATCH_STORAGE` before running the installer:
+>
+> ```bash
+> export SPATCH_STORAGE=/mnt/user   # or any path with ≥15 GB free
+> bash setup_environment.sh
+> ```
 
 ---
 
@@ -306,6 +318,16 @@ You are running without a GPU. Add `--gpu` to the cellpose command
 The setup script handles this automatically. If you see it when running
 pip manually, activate the environment first: `conda activate spatch`
 or `source .venv/bin/activate`.
+
+**"Disk quota exceeded" or "No space left on device":**
+Your home directory is too small for the full environment (~15 GB).
+Set `SPATCH_STORAGE` to a path with more space and re-run:
+```bash
+export SPATCH_STORAGE=/mnt/user   # adjust to your system
+bash setup_environment.sh
+```
+The script writes a `.condarc` so future `conda activate` sessions
+automatically use the redirected paths.
 
 **Kernel not found / SPATCH kernel missing:**
 Re-register it:

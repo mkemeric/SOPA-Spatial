@@ -16,6 +16,82 @@ cd "$SCRIPT_DIR"
 echo "Working directory: $SCRIPT_DIR"
 echo ""
 
+# ── Storage detection ───────────────────────────────────────────
+# Many HPC / container environments give users a small home quota
+# (e.g. 10 GB) that fills up fast with conda envs + pip cache.
+# This block checks available space and redirects heavy-weight
+# directories to a larger volume when necessary.
+#
+# Override:  export SPATCH_STORAGE=/path/to/big/disk
+#            before running this script.
+
+MIN_HOME_GB=15   # minimum free space required on $HOME
+
+home_free_kb=$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2{print $4}')
+home_free_gb=$(( ${home_free_kb:-0} / 1048576 ))
+
+if [[ -n "$SPATCH_STORAGE" ]]; then
+    STORAGE_ROOT="$SPATCH_STORAGE"
+    echo "Using SPATCH_STORAGE override: $STORAGE_ROOT"
+elif [[ $home_free_gb -lt $MIN_HOME_GB ]]; then
+    # Auto-detect a larger mount
+    for candidate in /mnt/user /scratch "$TMPDIR"; do
+        if [[ -d "$candidate" && -w "$candidate" ]]; then
+            cand_free_kb=$(df -Pk "$candidate" 2>/dev/null | awk 'NR==2{print $4}')
+            cand_free_gb=$(( ${cand_free_kb:-0} / 1048576 ))
+            if [[ $cand_free_gb -ge $MIN_HOME_GB ]]; then
+                STORAGE_ROOT="$candidate"
+                break
+            fi
+        fi
+    done
+
+    if [[ -n "$STORAGE_ROOT" ]]; then
+        echo "⚠️  Home directory has only ${home_free_gb} GB free (need ${MIN_HOME_GB} GB)."
+        echo "   Redirecting conda/pip storage → $STORAGE_ROOT"
+    else
+        echo "⚠️  Home directory has only ${home_free_gb} GB free and no suitable"
+        echo "   alternate volume was found (/mnt/user, /scratch, \$TMPDIR)."
+        echo "   Set SPATCH_STORAGE=/path/to/big/disk and re-run, or free space in \$HOME."
+        exit 1
+    fi
+else
+    STORAGE_ROOT=""   # home is big enough — use defaults
+fi
+
+if [[ -n "$STORAGE_ROOT" ]]; then
+    # Conda environments & package cache
+    export CONDA_ENVS_PATH="$STORAGE_ROOT/conda_envs"
+    export CONDA_PKGS_DIRS="$STORAGE_ROOT/conda_pkgs"
+    mkdir -p "$CONDA_ENVS_PATH" "$CONDA_PKGS_DIRS"
+
+    # Persist for future shells (idempotent)
+    CONDARC="$HOME/.condarc"
+    if ! grep -q "$STORAGE_ROOT/conda_envs" "$CONDARC" 2>/dev/null; then
+        cat > "$CONDARC" <<YAML
+envs_dirs:
+  - $STORAGE_ROOT/conda_envs
+pkgs_dirs:
+  - $STORAGE_ROOT/conda_pkgs
+YAML
+        echo "   Wrote $CONDARC"
+    fi
+
+    # Pip cache
+    export PIP_CACHE_DIR="$STORAGE_ROOT/pip_cache"
+    mkdir -p "$PIP_CACHE_DIR"
+
+    # Jupyter data (kernelspecs, etc.)
+    export JUPYTER_DATA_DIR="$STORAGE_ROOT/jupyter_data"
+    mkdir -p "$JUPYTER_DATA_DIR"
+
+    echo "   CONDA_ENVS_PATH = $CONDA_ENVS_PATH"
+    echo "   CONDA_PKGS_DIRS = $CONDA_PKGS_DIRS"
+    echo "   PIP_CACHE_DIR   = $PIP_CACHE_DIR"
+    echo "   JUPYTER_DATA_DIR= $JUPYTER_DATA_DIR"
+    echo ""
+fi
+
 # ── Determine Python and environment strategy ──────────────────
 # Priority: conda/mamba > existing venv > system python + auto-venv
 

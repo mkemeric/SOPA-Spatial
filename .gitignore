@@ -4,6 +4,14 @@
 # Sopa upstream repo (cloned by setup_environment.sh for Snakemake workflow)
 sopa/
 
+# Results and data artifacts
+results/
+spatialdata/
+*.zarr/
+
+# Snakemake
+.snakemake/
+
 # Python
 __pycache__/
 *.py[cod]

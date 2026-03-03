@@ -38,6 +38,29 @@ class DiffusionAnalysis(SpatchModule):
     requires = ["tables/table"]
     produces = ["tables/diffusion_metrics"]
 
+    def validate_inputs(self, sdata: sd.SpatialData) -> list[str]:
+        """Check that a tissue mask or in_tissue column exists."""
+        errors = super().validate_inputs(sdata)
+
+        table_key = self.config.get("table_key", "table")
+        in_tissue_col = self.config.get("in_tissue_col", "in_tissue")
+        tissue_mask_key = self.config.get("tissue_mask_key", "tissue_boundary")
+
+        has_col = (
+            table_key in sdata.tables
+            and in_tissue_col in sdata.tables[table_key].obs.columns
+        )
+        has_shape = tissue_mask_key in sdata.shapes
+
+        if not has_col and not has_shape:
+            errors.append(
+                f"No tissue information found. Provide either "
+                f"'{in_tissue_col}' column in tables/{table_key}.obs "
+                f"or '{tissue_mask_key}' in shapes. "
+                f"Hint: add dapi_tissue_mask as an earlier pipeline step."
+            )
+        return errors
+
     def run(
         self,
         sdata: sd.SpatialData,

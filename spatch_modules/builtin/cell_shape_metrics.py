@@ -35,8 +35,35 @@ class CellShapeMetrics(SpatchModule):
     version = "1.0.0"
     description = "Compute Shapely-based cell morphology metrics"
     category = "analysis"
-    requires = ["shapes/cell_boundaries", "tables/table"]
+    requires = ["tables/table"]  # shapes key checked dynamically below
     produces = []  # Adds columns to existing table
+
+    def validate_inputs(self, sdata: sd.SpatialData) -> list[str]:
+        """Check that required elements exist.
+
+        The boundaries shapes key is configurable, so we check the
+        configured key (or fall back to any key containing 'boundaries')
+        rather than a hardcoded class attribute.
+        """
+        errors = super().validate_inputs(sdata)
+
+        boundaries_key = self.config.get("boundaries_key", "cell_boundaries")
+        if boundaries_key in sdata.shapes:
+            return errors
+
+        # Try to find a plausible boundaries key automatically
+        candidates = [k for k in sdata.shapes if "boundar" in k.lower()]
+        if candidates:
+            # Stash the discovered key so run() can use it
+            self.config["boundaries_key"] = candidates[0]
+            return errors
+
+        available = list(sdata.shapes.keys()) or ["(none)"]
+        errors.append(
+            f"No shapes key '{boundaries_key}' found. "
+            f"Available shapes: {', '.join(available)}"
+        )
+        return errors
 
     def run(
         self,

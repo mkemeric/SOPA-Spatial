@@ -1,3 +1,8 @@
+# NOTE: This environment requires ~15 GB of disk space.
+# If your home directory is small, set SPATCH_STORAGE before running setup:
+#   export SPATCH_STORAGE=/mnt/user && bash setup_environment.sh
+# See ENVIRONMENT_QUICKSTART.md for details.
+
 name: spatch
 channels:
   - conda-forge

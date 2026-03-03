@@ -153,6 +153,21 @@ custom_modules:
   
   steps:
     # ─────────────────────────────────────────────────────────────
+    # DAPI Tissue Mask (must run before diffusion_analysis)
+    # ─────────────────────────────────────────────────────────────
+    # Generates a tissue boundary polygon from the DAPI image and
+    # tags each cell with in_tissue = 0|1.  Required by diffusion_analysis.
+    - module: dapi_tissue_mask
+      enabled: true
+      config:
+        channel: 0           # DAPI channel index
+        kernel_width: 500
+        dilate_iterations: 2
+        erode_iterations: 1
+        output_shapes_key: tissue_boundary
+        in_tissue_col: in_tissue
+
+    # ─────────────────────────────────────────────────────────────
     # Cell Shape Metrics
     # ─────────────────────────────────────────────────────────────
     # Morphological analysis - important for distinguishing tumor
