@@ -16,18 +16,9 @@ You need:
   the classic Notebook home page)
 - Xenium output data (the `outs/` directory from a 10x Xenium run)
 - **GPU access** for cell segmentation (CPU works but is ~50× slower)
-- **~15 GB free disk space** for the conda environment and package cache
-
-> **Storage note:** Many HPC / container environments have a small home
-> directory quota (e.g. 10 GB). The setup script automatically detects
-> this and redirects conda environments, pip cache, and Jupyter data to
-> a larger volume (`/mnt/user`, `/scratch`, or `$TMPDIR`). To force a
-> specific location, set `SPATCH_STORAGE` before running the installer:
->
-> ```bash
-> export SPATCH_STORAGE=/mnt/user   # or any path with ≥15 GB free
-> bash setup_environment.sh
-> ```
+- **~15 GB free disk space** for the conda environment and package cache.
+  The setup script auto-detects small home directories and redirects
+  storage to a larger volume (see [Addendum A](#addendum-a-storage-redirection)).
 
 ---
 
@@ -118,12 +109,7 @@ conda activate spatch   # if using conda
 export SOPA_PARALLELIZATION_BACKEND=dask
 ```
 
-> **Note on parallelism:** The `SOPA_PARALLELIZATION_BACKEND=dask` setting
-> parallelizes **segmentation** across patches. The other steps (convert,
-> patchify, aggregate) already use Dask internally for lazy I/O and
-> memory-efficient processing — no extra configuration needed.
-
-**Step 1 — Convert** raw Xenium data into the SpatialData format (a zarr
+**Step 1 — Convert**
 store that all downstream tools understand):
 
 ```bash
@@ -287,24 +273,10 @@ sdata = sd.read_zarr("results/janesick.zarr")
 results = run_custom_pipeline(sdata, "configs/janesick_breast_cancer.yaml")
 ```
 
-The pipeline config (`configs/janesick_breast_cancer.yaml`) runs three
-modules in order:
-
-1. **dapi_tissue_mask** — generates a tissue boundary polygon from the
-   DAPI image and tags each cell as `in_tissue = 0|1`. This is a
-   prerequisite for diffusion analysis. (`opencv-python-headless` is
-   installed automatically by `setup_environment.sh`.)
-2. **cell_shape_metrics** — computes morphological metrics (area,
-   circularity, eccentricity, solidity, aspect ratio) from cell boundary
-   polygons. Auto-discovers the boundary shapes key from sopa output
-   (e.g. `cellpose_boundaries`).
-3. **diffusion_analysis** — compares in-tissue vs out-of-tissue transcript
-   counts to quantify signal diffusion per gene.
-
-**Expected output** (Janesick breast cancer dataset):
-- ~218,966 cells tagged in-tissue by `dapi_tissue_mask`
-- ~218,983 cells with shape metrics (mean circularity ~0.86)
-- 313 genes analyzed for diffusion
+The pipeline config runs three modules in order:
+**dapi_tissue_mask** → **cell_shape_metrics** → **diffusion_analysis**.
+See [Addendum B](#addendum-b-spatch-module-details) for module descriptions
+and expected output.
 
 You can also run individual modules interactively:
 
@@ -334,21 +306,6 @@ You are running without a GPU. Add `--gpu` to the cellpose command
 (Option A) or verify `gpu: true` is in `configs/janesick_sopa.yaml`
 (Option B). If no GPU is available, expect 40+ hours for a full slide.
 
-**"externally-managed-environment" error:**
-The setup script handles this automatically. If you see it when running
-pip manually, activate the environment first: `conda activate spatch`
-or `source .venv/bin/activate`.
-
-**"Disk quota exceeded" or "No space left on device":**
-Your home directory is too small for the full environment (~15 GB).
-Set `SPATCH_STORAGE` to a path with more space and re-run:
-```bash
-export SPATCH_STORAGE=/mnt/user   # adjust to your system
-bash setup_environment.sh
-```
-The script writes a `.condarc` so future `conda activate` sessions
-automatically use the redirected paths.
-
 **Kernel not found / SPATCH kernel missing:**
 Re-register it:
 ```bash
@@ -356,19 +313,8 @@ conda activate spatch
 python3 -m ipykernel install --user --name spatch --display-name "SPATCH"
 ```
 
-**"opencv-python-headless is required" (dapi_tissue_mask):**
-The DAPI tissue mask module needs OpenCV. Install it:
-```bash
-conda activate spatch
-pip install opencv-python-headless
-```
-
-**cell_shape_metrics skipped — no cell_boundaries:**
-Different segmentation methods store boundaries under different keys
-(e.g. `cellpose_boundaries`). The module auto-discovers any shapes key
-containing "boundaries". If it still fails, check your zarr's available
-shapes keys and set `boundaries_key` in
-`configs/janesick_breast_cancer.yaml` accordingly.
+See [Addendum C](#addendum-c-additional-troubleshooting) for less common
+issues (disk quota, externally-managed environments, OpenCV, boundary keys).
 
 ---
 
@@ -380,3 +326,80 @@ shapes keys and set `boundaries_key` in
 - **SPATCH module config**: `configs/janesick_breast_cancer.yaml`
 - **Sopa documentation**: https://qupath.github.io/sopa/
 - **SpatialData documentation**: https://spatialdata.scverse.org/
+
+---
+
+## Addendum A: Storage Redirection
+
+Many HPC / container environments have a small home directory quota
+(e.g. 10 GB). `setup_environment.sh` automatically detects this and
+redirects conda environments, pip cache, and Jupyter data to a larger
+volume (`/mnt/user`, `/scratch`, or `$TMPDIR`).
+
+To force a specific location, set `SPATCH_STORAGE` before running setup:
+
+```bash
+export SPATCH_STORAGE=/mnt/user   # or any path with ≥15 GB free
+bash setup_environment.sh
+```
+
+The script writes a `.condarc` so future `conda activate` sessions
+automatically use the redirected paths. It also sets `PIP_CACHE_DIR`
+and `JUPYTER_DATA_DIR` for the session.
+
+---
+
+## Addendum B: SPATCH Module Details
+
+The custom pipeline (`configs/janesick_breast_cancer.yaml`) runs three
+modules in order:
+
+1. **dapi_tissue_mask** — generates a tissue boundary polygon from the
+   DAPI image and tags each cell as `in_tissue = 0|1`. This is a
+   prerequisite for diffusion analysis. (`opencv-python-headless` is
+   installed automatically by `setup_environment.sh`.)
+2. **cell_shape_metrics** — computes morphological metrics (area,
+   circularity, eccentricity, solidity, aspect ratio) from cell boundary
+   polygons. Auto-discovers the boundary shapes key from sopa output
+   (e.g. `cellpose_boundaries`).
+3. **diffusion_analysis** — compares in-tissue vs out-of-tissue transcript
+   counts to quantify signal diffusion per gene.
+
+**Expected output** (Janesick breast cancer dataset):
+- ~218,966 cells tagged in-tissue by `dapi_tissue_mask`
+- ~218,983 cells with shape metrics (mean circularity ~0.86)
+- 313 genes analyzed for diffusion
+
+**Dask parallelism note:** The `SOPA_PARALLELIZATION_BACKEND=dask`
+setting parallelizes **segmentation** across patches. The other steps
+(convert, patchify, aggregate) already use Dask internally for lazy I/O
+and memory-efficient processing — no extra configuration needed.
+
+---
+
+## Addendum C: Additional Troubleshooting
+
+**"externally-managed-environment" error:**
+The setup script handles this automatically. If you see it when running
+pip manually, activate the environment first: `conda activate spatch`
+or `source .venv/bin/activate`.
+
+**"Disk quota exceeded" or "No space left on device":**
+Your home directory is too small for the full environment (~15 GB).
+See [Addendum A](#addendum-a-storage-redirection) for the
+`SPATCH_STORAGE` override.
+
+**"opencv-python-headless is required" (dapi_tissue_mask):**
+This is installed automatically by `setup_environment.sh`. If you see
+this error, re-run the setup script or install manually:
+```bash
+conda activate spatch
+pip install opencv-python-headless
+```
+
+**cell_shape_metrics skipped — no cell_boundaries:**
+Different segmentation methods store boundaries under different keys
+(e.g. `cellpose_boundaries`). The module auto-discovers any shapes key
+containing "boundaries". If it still fails, check your zarr's available
+shapes keys and set `boundaries_key` in
+`configs/janesick_breast_cancer.yaml` accordingly.
