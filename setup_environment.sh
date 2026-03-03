@@ -230,6 +230,7 @@ pip_install_missing "Analysis packages" \
     "cellpose>=3.0" \
     "snakemake>=8.0" \
     "boto3>=1.35.40" \
+    opencv-python-headless \
     matplotlib \
     seaborn \
     scikit-learn \

@@ -113,7 +113,15 @@ the correct environment:
 ```bash
 cd SOPA-Spatial
 conda activate spatch   # if using conda
+
+# Enable Dask parallel backend for the session (speeds up segmentation)
+export SOPA_PARALLELIZATION_BACKEND=dask
 ```
+
+> **Note on parallelism:** The `SOPA_PARALLELIZATION_BACKEND=dask` setting
+> parallelizes **segmentation** across patches. The other steps (convert,
+> patchify, aggregate) already use Dask internally for lazy I/O and
+> memory-efficient processing — no extra configuration needed.
 
 **Step 1 — Convert** raw Xenium data into the SpatialData format (a zarr
 store that all downstream tools understand):
@@ -141,9 +149,6 @@ This creates ~250–300 patches (depending on tissue size). Takes ~1 minute.
 **Step 3 — Segment** cells using the cellpose deep-learning model:
 
 ```bash
-# Enable Dask parallel backend (processes all patches concurrently)
-export SOPA_PARALLELIZATION_BACKEND=dask
-
 sopa segmentation cellpose results/janesick.zarr \
   --diameter 35 \
   --channels DAPI \
@@ -287,8 +292,8 @@ modules in order:
 
 1. **dapi_tissue_mask** — generates a tissue boundary polygon from the
    DAPI image and tags each cell as `in_tissue = 0|1`. This is a
-   prerequisite for diffusion analysis. Requires `opencv-python-headless`
-   (install with `pip install opencv-python-headless` if not present).
+   prerequisite for diffusion analysis. (`opencv-python-headless` is
+   installed automatically by `setup_environment.sh`.)
 2. **cell_shape_metrics** — computes morphological metrics (area,
    circularity, eccentricity, solidity, aspect ratio) from cell boundary
    polygons. Auto-discovers the boundary shapes key from sopa output

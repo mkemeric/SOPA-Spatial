@@ -28,6 +28,7 @@ dependencies:
 
     # Segmentation
     - cellpose>=3.0
+    - opencv-python-headless
 
     # Spatial analysis
     - geopandas>=0.14
