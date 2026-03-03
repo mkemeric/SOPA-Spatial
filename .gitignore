@@ -1,6 +1,9 @@
 # Virtual environment (auto-created by setup_environment.sh on macOS)
 .venv/
 
+# Sopa upstream repo (cloned by setup_environment.sh for Snakemake workflow)
+sopa/
+
 # Python
 __pycache__/
 *.py[cod]

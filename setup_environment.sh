@@ -143,7 +143,6 @@ pip_install_missing "Core spatial packages" \
     "spatialdata>=0.6" \
     "spatialdata-io>=0.2" \
     "spatialdata-plot>=0.2.14,<0.3"
-# Note: sopa is installed locally in Step 3a below instead of from PyPI
 
 echo ""
 echo "========================================"
@@ -167,32 +166,19 @@ pip_install_missing "Analysis packages" \
 
 echo ""
 echo "========================================"
-echo "Step 3a: Installing local SOPA package"
+echo "Step 3a: Installing sopa from PyPI"
 echo "========================================"
-if [ -d "sopa" ]; then
-    # Use pip show (not import) — "import sopa" succeeds from the project
-    # root because Python treats the sopa/ directory as an implicit namespace
-    # package, even when sopa is not pip-installed. This silently skips the
-    # editable install, leaving the CLI entry point unregistered.
-    SOPA_LOCATION=$($PIP show sopa 2>/dev/null | grep -i '^Location:' | awk '{print $2}')
-    if [[ -n "$SOPA_LOCATION" ]]; then
-        # Sopa is pip-installed — but is it our local editable copy?
-        SOPA_EDITABLE=$($PIP show -f sopa 2>/dev/null | grep -c 'direct_url.json' || true)
-        if [[ "$SOPA_EDITABLE" -gt 0 ]]; then
-            echo "✓ sopa already installed (editable), skipping."
-        else
-            echo "sopa is installed from PyPI — replacing with local editable install..."
-            $PIP install -e ./sopa/
-            echo "✓ sopa reinstalled (editable mode from ./sopa/)"
-        fi
-    else
-        echo "Installing sopa in editable mode from ./sopa/..."
-        $PIP install -e ./sopa/
-        echo "✓ sopa installed"
-    fi
+pip_install_missing "sopa" "sopa>=2.1"
+
+# Clone the upstream sopa repo (shallow) for Snakemake workflow files.
+# The workflow/ directory is not distributed in the PyPI wheel.
+if [ ! -d "sopa/workflow/Snakefile" ]; then
+    echo "Cloning sopa repo (shallow) for Snakemake workflow files..."
+    rm -rf sopa
+    git clone --depth 1 https://github.com/gustaveroussy/sopa.git sopa
+    echo "✓ sopa workflow files available at sopa/workflow/"
 else
-    echo "⚠️  WARNING: sopa/ directory not found, falling back to PyPI"
-    pip_install_missing "sopa (PyPI fallback)" "sopa>=2.1"
+    echo "✓ sopa workflow files already present"
 fi
 
 echo ""
