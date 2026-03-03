@@ -194,7 +194,7 @@ export SOPA_PARALLELIZATION_BACKEND=dask
 snakemake \
   --snakefile sopa/workflow/Snakefile \
   --configfile configs/janesick_sopa.yaml \
-  --config data_path=/mnt/shared/janesick/input sdata_path=results/janesick.zarr \
+  --config data_path=/mnt/shared/janesick/input/outs sdata_path=results/janesick.zarr \
   --cores 4
 ```
 
@@ -217,7 +217,7 @@ the full pipeline takes roughly 20–30 minutes.
 snakemake \
   --snakefile sopa/workflow/Snakefile \
   --configfile configs/janesick_sopa.yaml \
-  --config data_path=/mnt/shared/janesick/input sdata_path=results/janesick.zarr \
+  --config data_path=/mnt/shared/janesick/input/outs sdata_path=results/janesick.zarr \
   --cores 4 --dry-run
 ```
 
