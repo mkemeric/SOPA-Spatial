@@ -200,7 +200,38 @@ custom_modules:
         compute_distances: true
         batch_size: 100000
 
-# ═══════════════════════════════════════════════════════════════════
+    # ─────────────────────────────────────────────────────────────
+    # Pipeline Visualizations (must run last)
+    # ─────────────────────────────────────────────────────────────
+    # Runs scanpy preprocessing (normalize, PCA, UMAP, Leiden) and
+    # generates QC + analysis figures from all upstream results.
+    - module: pipeline_visualizations
+      enabled: true
+      config:
+        table_key: table
+        output_dir: ./results/janesick_breast_cancer/figures/
+        figure_format: png
+        figure_dpi: 300
+        leiden_resolution: 0.5
+        n_top_genes: 3000
+        marker_genes:
+          - FASN
+          - CEACAM6
+          - ACTA2
+          - KRT15
+          - POSTN
+          - CD3E
+          - ITGAX
+          - VWF
+        plots:
+          - spatial_scatter
+          - umap
+          - cluster_composition
+          - marker_heatmap
+          - neighborhood_enrichment
+          - cell_shape_distributions
+
+# ═════════════════════════════════════════════════════════════════
 # OUTPUT
 # ═══════════════════════════════════════════════════════════════════
 

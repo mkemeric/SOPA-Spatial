@@ -13,6 +13,7 @@ from . import dapi_tissue_mask
 from . import image_registration
 from . import annotation_consensus
 from . import spatial_cluster
+from . import pipeline_visualizations
 
 __all__ = [
     "codex_loader",
@@ -24,4 +25,5 @@ __all__ = [
     "image_registration",
     "annotation_consensus",
     "spatial_cluster",
+    "pipeline_visualizations",
 ]
