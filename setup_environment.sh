@@ -276,7 +276,36 @@ else
     echo "⚠️  WARNING: pyproject.toml not found"
 fi
 
-# ── Step 3c: Register Jupyter kernel ────────────────────────────
+# ── Step 3c: Fix entry-point shebangs ──────────────────────
+# When conda envs are created in a non-default path (via storage
+# redirection), pip may bake shebang lines that don't resolve.
+# This fixes any broken shebangs in the env's bin/ directory.
+if [[ -n "$STORAGE_ROOT" ]]; then
+    ENV_PREFIX=$($PYTHON -c "import sys; print(sys.prefix)")
+    CORRECT_PYTHON="$ENV_PREFIX/bin/python3"
+    if [[ -x "$CORRECT_PYTHON" ]]; then
+        fixed=0
+        for script in "$ENV_PREFIX"/bin/*; do
+            [[ -f "$script" && -x "$script" ]] || continue
+            head_line=$(head -1 "$script" 2>/dev/null)
+            case "$head_line" in
+                "#!"*python*)
+                    shebang_path=${head_line#\#\!}
+                    shebang_path=${shebang_path%% *}   # strip any args
+                    if [[ ! -x "$shebang_path" ]]; then
+                        sed -i "1s|.*|#!${CORRECT_PYTHON}|" "$script"
+                        fixed=$((fixed + 1))
+                    fi
+                    ;;
+            esac
+        done
+        if [[ $fixed -gt 0 ]]; then
+            echo "✓ Fixed $fixed entry-point shebang(s) in $ENV_PREFIX/bin/"
+        fi
+    fi
+fi
+
+# ── Step 3d: Register Jupyter kernel ────────────────────────
 # Ensures the current environment is available as a Jupyter kernel
 # so notebooks can find all installed packages.
 if command -v jupyter >/dev/null 2>&1; then
