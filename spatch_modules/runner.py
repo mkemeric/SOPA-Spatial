@@ -17,13 +17,17 @@ from .registry import get_module, discover_user_modules
 def run_custom_pipeline(
     sdata: sd.SpatialData,
     config_path: str | Path,
-    verbose: bool = True
+    module_name: str | None = None,
+    verbose: bool = True,
 ) -> dict[str, Any]:
-    """Execute all enabled custom modules from a YAML config.
+    """Execute custom modules from a YAML config.
     
     Args:
         sdata: Input SpatialData object (will be modified in-place).
         config_path: Path to YAML configuration file.
+        module_name: If set, run **only** the step matching this name
+            (config is still read from the YAML).  Omit to run all
+            enabled steps.
         verbose: Whether to print progress messages.
     
     Returns:
@@ -51,6 +55,10 @@ def run_custom_pipeline(
             continue
         
         name = step["module"]
+
+        # If a specific module was requested, skip everything else
+        if module_name is not None and name != module_name:
+            continue
         step_config = step.get("config", {})
         
         try:

@@ -52,11 +52,7 @@ conda activate spatch
 
 From the terminal:
 
-```bash
-python3 -c 'import sopa; import spatch_modules; print("All imports OK!")'
-```
-
-Or run the full diagnostic:
+Run the full diagnostic:
 
 ```bash
 python3 setup_local_imports.py
@@ -86,7 +82,48 @@ You should see the file listed without errors.
 
 ---
 
-## 4. Run the Pipeline
+## 4. Configure SPATCH Analysis
+
+The SPATCH config file controls which custom analysis modules run after
+the sopa pipeline and how they are parameterized. The default config for
+the Janesick dataset is:
+
+```
+configs/janesick_breast_cancer.yaml
+```
+
+This config enables four modules that align with the sopa pipeline output:
+
+- **dapi_tissue_mask** — uses the DAPI channel (channel 0) from the Xenium
+  images to generate a tissue boundary and tag each cell as in-tissue or
+  out-of-tissue.  Parameters: `kernel_width`, `dilate_iterations`,
+  `erode_iterations`.
+- **cell_shape_metrics** — computes morphology metrics (area, circularity,
+  eccentricity, solidity, aspect ratio) from the cell boundary polygons
+  produced by cellpose segmentation.  Automatically discovers the boundary
+  shapes key (e.g. `cellpose_boundaries`).
+- **diffusion_analysis** — compares transcript counts inside vs outside the
+  tissue mask to quantify per-gene signal diffusion.  Requires
+  `dapi_tissue_mask` to run first.  Parameters: `buffer_distance_um`,
+  `batch_size`.
+- **pipeline_visualizations** — runs scanpy preprocessing if needed
+  (normalize, PCA, UMAP, Leiden) and generates six figure types.
+  Parameters: `marker_genes`, `leiden_resolution`, `output_dir`,
+  `figure_dpi`.
+
+**Customizing the config:**
+
+To disable a module, set `enabled: false` on its step.  To change
+marker genes for the heatmap, edit the `marker_genes` list under the
+`pipeline_visualizations` step.  Output paths default to
+`results/janesick_breast_cancer/figures/` — change `output_dir` if needed.
+
+For a different dataset, copy the config and adjust `data_path`,
+`boundaries_key`, channel indices, and marker genes to match your data.
+
+---
+
+## 5. Run the Pipeline
 
 There are three ways to run the pipeline. **Pick whichever fits your
 workflow** — all three produce the same results.
@@ -156,6 +193,24 @@ sopa aggregate results/janesick.zarr --min-transcripts 10
 This takes ~30 seconds. When it finishes, `results/janesick.zarr` contains
 the full processed dataset ready for analysis.
 
+**Step 5 — Run SPATCH custom modules** (tissue mask, morphology, diffusion
+analysis, and visualizations):
+
+```bash
+sopa spatch run results/janesick.zarr \
+  --config configs/janesick_breast_cancer.yaml --save
+```
+
+This runs four modules in order: `dapi_tissue_mask` → `cell_shape_metrics`
+→ `diffusion_analysis` → `pipeline_visualizations`. Figures are saved to
+`results/janesick_breast_cancer/figures/`. Takes ~2–5 minutes.
+
+> **Tip:** The convenience script `run_janesick_pipeline.sh` runs all five
+> steps above in a single command:
+> ```bash
+> bash run_janesick_pipeline.sh
+> ```
+
 ---
 
 ### Option B: Snakemake (fully automated pipeline)
@@ -206,6 +261,22 @@ snakemake \
   --config data_path=/mnt/shared/janesick/input/outs sdata_path=results/janesick.zarr \
   --cores 4 --dry-run
 ```
+
+**After Snakemake finishes**, run the SPATCH custom modules (tissue mask,
+morphology, diffusion analysis, and visualizations):
+
+```bash
+sopa spatch run results/janesick.zarr \
+  --config configs/janesick_breast_cancer.yaml --save
+```
+
+Figures are saved to `results/janesick_breast_cancer/figures/`.
+
+> **Tip:** The convenience script `run_janesick_snakemake.sh` wraps both
+> Snakemake and SPATCH modules into a single command:
+> ```bash
+> bash run_janesick_snakemake.sh
+> ```
 
 ---
 
@@ -259,11 +330,88 @@ top to bottom.
 
 ---
 
-## 5. Run SPATCH Custom Modules
+## 6. Run SPATCH Custom Modules
 
 After the sopa pipeline completes (via any of the three options above),
-you can run the SPATCH custom analysis modules. These work in both
-terminal Python and notebooks.
+you can run the SPATCH custom analysis modules. These add tissue masking,
+cell morphology metrics, diffusion analysis, and publication-quality
+figures on top of the standard sopa output.
+
+The Janesick config runs four modules in order:
+**dapi_tissue_mask** → **cell_shape_metrics** → **diffusion_analysis** →
+**pipeline_visualizations**.
+See [Addendum B](#addendum-b-spatch-module-details) for module descriptions
+and expected output.
+
+### SPATCH CLI (recommended)
+
+The `spatch` and `sopa spatch` CLI commands are installed by
+`setup_environment.sh` and are available in every terminal session:
+
+```bash
+# Run all enabled SPATCH modules from the config
+spatch run results/janesick.zarr --config configs/janesick_breast_cancer.yaml
+
+# Same command via sopa (works identically)
+sopa spatch run results/janesick.zarr --config configs/janesick_breast_cancer.yaml
+
+# Run a single module and save the modified zarr
+spatch run results/janesick.zarr -c configs/janesick_breast_cancer.yaml -m dapi_tissue_mask --save
+
+# List available modules
+spatch list
+
+# Show module details
+spatch describe pipeline_visualizations
+```
+
+**Key flags:**
+- `--module / -m <name>` — run only one module (config still read from YAML)
+- `--save / -s` — write the modified zarr back (required for chained steps)
+- `--config / -c` — path to YAML config file
+
+### Container / agent execution
+
+Each module can run in its own container with externalized data storage.
+The `--module` and `--save` flags enable step-by-step orchestration:
+
+```bash
+# Full SPATCH pipeline in one container
+docker exec worker sopa spatch run /data/results.zarr \
+  --config /data/configs/janesick_breast_cancer.yaml --save
+
+# Or chain individual modules across containers
+docker exec worker sopa spatch run /data/results.zarr \
+  -c /data/config.yaml -m dapi_tissue_mask --save
+
+docker exec worker sopa spatch run /data/results.zarr \
+  -c /data/config.yaml -m cell_shape_metrics --save
+
+docker exec worker sopa spatch run /data/results.zarr \
+  -c /data/config.yaml -m diffusion_analysis --save
+
+docker exec worker sopa spatch run /data/results.zarr \
+  -c /data/config.yaml -m pipeline_visualizations --save
+```
+
+The zarr directory on the mounted volume is the shared state between
+containers. Each `--save` persists the module's output for the next step.
+
+### Convenience scripts
+
+The shell scripts wrap the full sopa + SPATCH pipeline into a single command:
+
+```bash
+# Sopa CLI steps + SPATCH modules:
+bash run_janesick_pipeline.sh
+
+# Snakemake + SPATCH modules:
+bash run_janesick_snakemake.sh
+```
+
+### Python API (notebooks / interactive)
+
+If you already have a processed zarr from sopa, run SPATCH from Python:
 
 ```python
 import spatialdata as sd
@@ -273,12 +421,7 @@ sdata = sd.read_zarr("results/janesick.zarr")
 results = run_custom_pipeline(sdata, "configs/janesick_breast_cancer.yaml")
 ```
 
-The pipeline config runs three modules in order:
-**dapi_tissue_mask** → **cell_shape_metrics** → **diffusion_analysis**.
-See [Addendum B](#addendum-b-spatch-module-details) for module descriptions
-and expected output.
-
-You can also run individual modules interactively:
+Or run a single module interactively:
 
 ```python
 from spatch_modules import run_single_module
@@ -286,9 +429,54 @@ from spatch_modules import run_single_module
 sdata = run_single_module(sdata, "cell_shape_metrics", output_dir="results/")
 ```
 
+### Generated figures
+
+The `pipeline_visualizations` module saves six PNG files to
+`results/janesick_breast_cancer/figures/`:
+
+- `spatial_scatter.png` — cells on tissue coordinates, colored by Leiden cluster
+- `umap_leiden.png` — UMAP embedding colored by Leiden cluster
+- `cluster_composition.png` — bar chart of cell counts per cluster
+- `marker_heatmap.png` — mean expression of 8 marker genes per cluster
+- `neighborhood_enrichment.png` — spatial co-localization matrix (squidpy)
+- `cell_shape_distributions.png` — violin plots of morphology metrics by cluster
+
+### Viewing figures in Jupyter
+
+**File browser (quickest):** In JupyterLab, navigate to
+`results/janesick_breast_cancer/figures/` in the left sidebar and
+double-click any PNG to open it in a viewer tab.
+
+**In a notebook cell:**
+
+```python
+from IPython.display import Image, display
+from pathlib import Path
+
+fig_dir = Path("results/janesick_breast_cancer/figures")
+for png in sorted(fig_dir.glob("*.png")):
+    print(png.name)
+    display(Image(filename=str(png), width=800))
+```
+
+**Side-by-side comparison** (e.g. spatial vs UMAP):
+
+```python
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+
+fig, axes = plt.subplots(1, 2, figsize=(18, 8))
+for ax, name in zip(axes, ["spatial_scatter.png", "umap_leiden.png"]):
+    ax.imshow(mpimg.imread(f"results/janesick_breast_cancer/figures/{name}"))
+    ax.set_title(name.replace(".png", "").replace("_", " ").title())
+    ax.axis("off")
+plt.tight_layout()
+plt.show()
+```
+
 ---
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 **"No module named 'spatialdata'" or other import errors:**
 Make sure you selected the **SPATCH** kernel (notebooks) or ran
@@ -318,7 +506,7 @@ issues (disk quota, externally-managed environments, OpenCV, boundary keys).
 
 ---
 
-## 7. Reference
+## 8. Reference
 
 - **Full setup docs**: `docs/ENVIRONMENT_SETUP.md`
 - **Janesick pipeline details**: `docs/JANESICK_PIPELINE_SETUP.md`
@@ -351,7 +539,7 @@ and `JUPYTER_DATA_DIR` for the session.
 
 ## Addendum B: SPATCH Module Details
 
-The custom pipeline (`configs/janesick_breast_cancer.yaml`) runs three
+The custom pipeline (`configs/janesick_breast_cancer.yaml`) runs four
 modules in order:
 
 1. **dapi_tissue_mask** — generates a tissue boundary polygon from the
@@ -364,11 +552,18 @@ modules in order:
    (e.g. `cellpose_boundaries`).
 3. **diffusion_analysis** — compares in-tissue vs out-of-tissue transcript
    counts to quantify signal diffusion per gene.
+4. **pipeline_visualizations** — runs scanpy preprocessing (normalize,
+   PCA, UMAP, Leiden) if not already present, then generates six figure
+   types to `results/janesick_breast_cancer/figures/`:
+   `spatial_scatter`, `umap_leiden`, `cluster_composition`,
+   `marker_heatmap`, `neighborhood_enrichment`, `cell_shape_distributions`.
+   Uses a headless matplotlib backend — no display required.
 
 **Expected output** (Janesick breast cancer dataset):
 - ~218,966 cells tagged in-tissue by `dapi_tissue_mask`
 - ~218,983 cells with shape metrics (mean circularity ~0.86)
 - 313 genes analyzed for diffusion
+- 6 PNG figures in `results/janesick_breast_cancer/figures/`
 
 **Dask parallelism note:** The `SOPA_PARALLELIZATION_BACKEND=dask`
 setting parallelizes **segmentation** across patches. The other steps

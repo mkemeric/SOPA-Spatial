@@ -69,16 +69,19 @@ snakemake \
     --profile "$PROFILE_DIR" \
     "$@"
 
+# ── Run SPATCH custom modules + visualizations ───────────────
+echo ""
+echo "── Running SPATCH custom modules ──"
+spatch run "$SDATA_PATH" \
+    --config "$SCRIPT_DIR/configs/janesick_breast_cancer.yaml" \
+    --save
+echo "   ✓ SPATCH modules complete"
+
 echo ""
 echo "========================================"
-echo "Snakemake Pipeline Complete!"
+echo "Pipeline Complete!"
 echo "========================================"
 echo ""
-echo "Next: run SPATCH custom modules:"
-echo "  python3 -c \""
-echo "    import spatialdata as sd"
-echo "    from spatch_modules.runner import run_custom_pipeline"
-echo "    sdata = sd.read_zarr('$SDATA_PATH')"
-echo "    results = run_custom_pipeline(sdata, 'configs/janesick_breast_cancer.yaml')"
-echo "  \""
+echo "  SpatialData: $SDATA_PATH"
+echo "  Figures:     results/janesick_breast_cancer/figures/"
 echo ""

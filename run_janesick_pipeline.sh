@@ -84,6 +84,14 @@ echo "── Step 7: Generating report ──"
 sopa report "$SDATA_PATH" "$EXPLORER_PATH/analysis_summary.html"
 echo "   ✓ Report generated"
 
+# ── Step 8: SPATCH custom modules + visualizations ────────────
+echo ""
+echo "── Step 8: Running SPATCH custom modules ──"
+spatch run "$SDATA_PATH" \
+    --config "$SCRIPT_DIR/configs/janesick_breast_cancer.yaml" \
+    --save
+echo "   ✓ SPATCH modules complete"
+
 echo ""
 echo "========================================"
 echo "Pipeline Complete!"
@@ -92,12 +100,5 @@ echo ""
 echo "  SpatialData: $SDATA_PATH"
 echo "  Explorer:    $EXPLORER_PATH"
 echo "  Report:      $EXPLORER_PATH/analysis_summary.html"
-echo ""
-echo "Next: run SPATCH custom modules (diffusion_analysis, cell_shape_metrics):"
-echo "  python3 -c \""
-echo "    import spatialdata as sd"
-echo "    from spatch_modules.runner import run_custom_pipeline"
-echo "    sdata = sd.read_zarr('$SDATA_PATH')"
-echo "    results = run_custom_pipeline(sdata, 'configs/janesick_breast_cancer.yaml')"
-echo "  \""
+echo "  Figures:     results/janesick_breast_cancer/figures/"
 echo ""
