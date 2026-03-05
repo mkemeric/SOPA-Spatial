@@ -198,12 +198,13 @@ analysis, and visualizations):
 
 ```bash
 sopa spatch run results/janesick.zarr \
-  --config configs/janesick_breast_cancer.yaml --save
+  --config configs/janesick_breast_cancer.yaml
 ```
 
 This runs four modules in order: `dapi_tissue_mask` → `cell_shape_metrics`
-→ `diffusion_analysis` → `pipeline_visualizations`. Figures are saved to
-`results/janesick_breast_cancer/figures/`. Takes ~2–5 minutes.
+→ `diffusion_analysis` → `pipeline_visualizations`. Each module's tabular
+output is saved as a parquet file under `results/janesick_breast_cancer/spatch/`.
+Figures are saved to `results/janesick_breast_cancer/figures/`. Takes ~2–5 minutes.
 
 > **Tip:** The convenience script `run_janesick_pipeline.sh` runs all five
 > steps above in a single command:
@@ -267,7 +268,7 @@ morphology, diffusion analysis, and visualizations):
 
 ```bash
 sopa spatch run results/janesick.zarr \
-  --config configs/janesick_breast_cancer.yaml --save
+  --config configs/janesick_breast_cancer.yaml
 ```
 
 Figures are saved to `results/janesick_breast_cancer/figures/`.
@@ -355,8 +356,11 @@ spatch run results/janesick.zarr --config configs/janesick_breast_cancer.yaml
 # Same command via sopa (works identically)
 sopa spatch run results/janesick.zarr --config configs/janesick_breast_cancer.yaml
 
-# Run a single module and save the modified zarr
-spatch run results/janesick.zarr -c configs/janesick_breast_cancer.yaml -m dapi_tissue_mask --save
+# Run a single module
+spatch run results/janesick.zarr -c configs/janesick_breast_cancer.yaml -m dapi_tissue_mask
+
+# Specify a custom output directory for parquet files
+spatch run results/janesick.zarr -c configs/janesick_breast_cancer.yaml -o ./results/janesick_breast_cancer/
 
 # List available modules
 spatch list
@@ -367,35 +371,38 @@ spatch describe pipeline_visualizations
 
 **Key flags:**
 - `--module / -m <name>` — run only one module (config still read from YAML)
-- `--save / -s` — write the modified zarr back (required for chained steps)
+- `--output-dir / -o` — directory for parquet outputs (defaults from config)
 - `--config / -c` — path to YAML config file
 
 ### Container / agent execution
 
 Each module can run in its own container with externalized data storage.
-The `--module` and `--save` flags enable step-by-step orchestration:
+The `--module` flag enables step-by-step orchestration.  Each module's
+tabular output is persisted as a parquet file under `{output_dir}/spatch/`,
+so no zarr write-back is needed between steps:
 
 ```bash
 # Full SPATCH pipeline in one container
 docker exec worker sopa spatch run /data/results.zarr \
-  --config /data/configs/janesick_breast_cancer.yaml --save
+  --config /data/configs/janesick_breast_cancer.yaml
 
 # Or chain individual modules across containers
 docker exec worker sopa spatch run /data/results.zarr \
-  -c /data/config.yaml -m dapi_tissue_mask --save
+  -c /data/config.yaml -m dapi_tissue_mask
 
 docker exec worker sopa spatch run /data/results.zarr \
-  -c /data/config.yaml -m cell_shape_metrics --save
+  -c /data/config.yaml -m cell_shape_metrics
 
 docker exec worker sopa spatch run /data/results.zarr \
-  -c /data/config.yaml -m diffusion_analysis --save
+  -c /data/config.yaml -m diffusion_analysis
 
 docker exec worker sopa spatch run /data/results.zarr \
-  -c /data/config.yaml -m pipeline_visualizations --save
+  -c /data/config.yaml -m pipeline_visualizations
 ```
 
-The zarr directory on the mounted volume is the shared state between
-containers. Each `--save` persists the module's output for the next step.
+The zarr directory (read-only) plus the `spatch/` parquet directory on
+the mounted volume provide shared state between containers.  Each module
+loads prior outputs from parquet at startup.
 
 ### Convenience scripts
 

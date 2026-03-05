@@ -92,8 +92,7 @@ echo "   ✓ Report generated"
 echo ""
 echo "── Step 8: Running SPATCH custom modules ──"
 spatch run "$SDATA_PATH" \
-    --config "$SCRIPT_DIR/configs/janesick_breast_cancer.yaml" \
-    --save
+    --config "$SCRIPT_DIR/configs/janesick_breast_cancer.yaml"
 echo "   ✓ SPATCH modules complete"
 
 echo ""
