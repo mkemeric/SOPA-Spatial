@@ -29,6 +29,9 @@ fi
 
 mkdir -p "$(dirname "$SDATA_PATH")"
 
+# Enable Dask parallel backend for segmentation
+export SOPA_PARALLELIZATION_BACKEND=dask
+
 # ── Step 1: Convert Xenium data to SpatialData ─────────────────
 echo ""
 echo "── Step 1: Converting Xenium data to SpatialData ──"

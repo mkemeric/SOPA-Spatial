@@ -58,6 +58,9 @@ if ! command -v snakemake >/dev/null 2>&1; then
     exit 1
 fi
 
+# Enable Dask parallel backend for segmentation
+export SOPA_PARALLELIZATION_BACKEND=dask
+
 echo ""
 echo "Running Snakemake with $(grep 'cores:' "$PROFILE_DIR/config.yaml" | awk '{print $2}') cores..."
 echo ""
