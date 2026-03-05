@@ -86,6 +86,13 @@ def _cmd_run(
 
     if save:
         typer.echo(f"Saving: {sdata_path}")
+        # Materialize any Dask-backed arrays before writing back to
+        # the same zarr — SpatialData cannot overwrite files that are
+        # still memory-mapped by Dask.
+        for tkey in list(sdata.tables.keys()):
+            tbl = sdata.tables[tkey]
+            if hasattr(tbl.X, 'compute'):
+                tbl.X = tbl.X.compute()
         sdata.write(sdata_path, overwrite=True)
 
     completed = sum(1 for r in results.values() if r["status"] == "completed")

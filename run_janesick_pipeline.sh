@@ -55,7 +55,8 @@ echo "── Step 3: Running Cellpose segmentation ──"
 sopa segmentation cellpose "$SDATA_PATH" \
     --diameter 35 \
     --channels DAPI \
-    --model-type cyto2
+    --model-type cyto2 \
+    --gpu
 echo "   ✓ Segmentation complete"
 
 # ── Step 4: Resolve boundary conflicts ──────────────────────────

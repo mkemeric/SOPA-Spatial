@@ -120,6 +120,11 @@ class PipelineVisualizations(SpatchModule):
 
         adata = sdata.tables[table_key].copy()
 
+        # Materialize Dask-backed arrays — scanpy requires eager data
+        if hasattr(adata.X, 'compute'):
+            adata.X = adata.X.compute()
+            log.append("Materialized Dask-backed expression matrix")
+
         # ── preprocessing ────────────────────────────────────────────
         prep_log = _ensure_preprocessed(
             adata,
