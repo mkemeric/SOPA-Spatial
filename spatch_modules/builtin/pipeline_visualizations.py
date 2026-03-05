@@ -185,11 +185,10 @@ class PipelineVisualizations(SpatchModule):
             available = [g for g in marker_genes if g in adata.var_names]
             if available:
                 path = out / f"marker_heatmap.{fmt}"
-                fig, ax = plt.subplots(figsize=(max(8, len(available) * 0.6), 6))
                 sc.pl.heatmap(
                     adata, var_names=available, groupby="leiden",
-                    show=False, ax=ax, swap_axes=True,
-                    dendrogram=False,
+                    show=False, swap_axes=True, dendrogram=False,
+                    figsize=(max(8, len(available) * 0.6), 6),
                 )
                 _savefig(plt.gcf(), path, dpi)
                 artifacts["marker_heatmap"] = str(path)
