@@ -97,24 +97,31 @@ class CellShapeMetrics(SpatchModule):
         boundaries = sdata.shapes[boundaries_key]
         log.append(f"Processing {len(boundaries)} cell boundaries")
         
-        # Compute metrics for each cell
+        # Compute metrics for each cell — indexed by the shapes' cell IDs
         metrics = self._compute_shape_metrics(boundaries)
+        metrics.index = boundaries.index
         
         # Add to table if requested
         if add_to_table and table_key in sdata.tables:
             adata = sdata.tables[table_key]
+            shape_cols = ["area_um2", "perimeter_um", "circularity",
+                         "eccentricity", "solidity", "aspect_ratio"]
             
-            # Match by index if possible
             if len(metrics) == adata.n_obs:
-                for col in ["area_um2", "perimeter_um", "circularity", 
-                           "eccentricity", "solidity", "aspect_ratio"]:
+                # Fast path: row counts match, assign directly
+                for col in shape_cols:
                     adata.obs[col] = metrics[col].values
-                log.append(f"Added shape metrics to {table_key}")
             else:
-                log.append(
-                    f"WARNING: Shape count ({len(metrics)}) doesn't match "
-                    f"table rows ({adata.n_obs}). Metrics not added to table."
-                )
+                # Join on index (cell_id) — handles boundary/table
+                # count mismatches from skipped degenerate polygons
+                for col in shape_cols:
+                    adata.obs[col] = metrics[col].reindex(adata.obs_names)
+            
+            n_matched = adata.obs[shape_cols[0]].notna().sum()
+            log.append(
+                f"Added shape metrics to {table_key} "
+                f"({n_matched}/{adata.n_obs} cells matched)"
+            )
         
         # Summary statistics
         summary = {
