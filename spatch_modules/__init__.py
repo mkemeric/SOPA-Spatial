@@ -7,7 +7,12 @@ built on the SpatialData + Sopa platform.
 
 from .base import SpatchModule, ModuleResult
 from .registry import register, get_module, list_modules, discover_user_modules
-from .runner import run_custom_pipeline, run_single_module
+from .runner import run_custom_pipeline, run_single_module, merge_prior_outputs
+from .io import (
+    load_obs_parquets,
+    load_table_parquet,
+    list_saved_outputs,
+)
 
 __version__ = "1.0.0"
 
@@ -20,6 +25,10 @@ __all__ = [
     "discover_user_modules",
     "run_custom_pipeline",
     "run_single_module",
+    "merge_prior_outputs",
+    "load_obs_parquets",
+    "load_table_parquet",
+    "list_saved_outputs",
 ]
 
 # Auto-discover builtin modules on import

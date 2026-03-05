@@ -8,7 +8,8 @@ as a sopa subcommand group via ``spatch_modules.sopa_plugin``.
 Usage (standalone)::
 
     spatch run results.zarr --config configs/janesick_breast_cancer.yaml
-    spatch run results.zarr -c configs/janesick_breast_cancer.yaml -m dapi_tissue_mask --save
+    spatch run results.zarr -c configs/janesick_breast_cancer.yaml -m dapi_tissue_mask
+    spatch run results.zarr -c config.yaml -o ./results/janesick_breast_cancer/
     spatch list
     spatch describe dapi_tissue_mask
 
@@ -61,10 +62,17 @@ def _cmd_run(
     sdata_path: str,
     config: str,
     module: str | None,
+    output_dir: str | None,
     save: bool,
     user_dir: str | None,
 ):
-    """Backend for both ``spatch run`` and ``sopa spatch run``."""
+    """Backend for both ``spatch run`` and ``sopa spatch run``.
+
+    Module outputs are **always** persisted as parquet files under
+    ``{output_dir}/spatch/``.  The ``--save`` flag additionally
+    attempts a full zarr write-back (still subject to Dask-lock
+    limitations — prefer parquet outputs).
+    """
     import spatialdata as sd
     from spatch_modules.runner import run_custom_pipeline
     from spatch_modules.registry import discover_user_modules
@@ -81,11 +89,12 @@ def _cmd_run(
         sdata,
         config,
         module_name=module,
+        output_dir=output_dir,
         verbose=True,
     )
 
     if save:
-        typer.echo(f"Saving: {sdata_path}")
+        typer.echo(f"Saving zarr (legacy): {sdata_path}")
         # Materialize any Dask-backed arrays before writing back to
         # the same zarr — SpatialData cannot overwrite files that are
         # still memory-mapped by Dask.
@@ -93,7 +102,14 @@ def _cmd_run(
             tbl = sdata.tables[tkey]
             if hasattr(tbl.X, 'compute'):
                 tbl.X = tbl.X.compute()
-        sdata.write(sdata_path, overwrite=True)
+        try:
+            sdata.write(sdata_path, overwrite=True)
+        except Exception as e:
+            typer.echo(
+                f"⚠ Zarr write-back failed ({e}). "
+                "Parquet outputs are still available under "
+                f"{output_dir or '(config output_dir)'}/spatch/"
+            )
 
     completed = sum(1 for r in results.values() if r["status"] == "completed")
     skipped = sum(1 for r in results.values() if r["status"] == "skipped")
@@ -119,10 +135,15 @@ def run(
         help="Run only this module (must match a step name in the config). "
              "Omit to run all enabled modules.",
     ),
+    output_dir: str = typer.Option(
+        None, "--output-dir", "-o",
+        help="Directory for parquet outputs (default: output.output_dir from config). "
+             "Module results are saved under {output_dir}/spatch/.",
+    ),
     save: bool = typer.Option(
         False, "--save", "-s",
-        help="Write the modified SpatialData back to sdata_path after running. "
-             "Required for chained container execution.",
+        help="[Legacy] Also write the modified SpatialData back to the zarr. "
+             "Parquet outputs are always written regardless of this flag.",
     ),
     user_dir: str = typer.Option(
         None, "--user-dir",
@@ -130,7 +151,7 @@ def run(
     ),
 ):
     """Run SPATCH custom modules on a SpatialData object."""
-    _cmd_run(sdata_path, config, module, save, user_dir)
+    _cmd_run(sdata_path, config, module, output_dir, save, user_dir)
 
 
 @app_spatch.command("list")
