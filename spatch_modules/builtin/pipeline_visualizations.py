@@ -52,7 +52,7 @@ def _ensure_preprocessed(adata, n_top_genes: int = 3000, n_pcs: int = 50,
     # HVG
     if "highly_variable" not in adata.var.columns:
         sc.pp.highly_variable_genes(adata, n_top_genes=n_top_genes,
-                                    flavor="seurat_v3")
+                                    flavor="seurat")
         log.append(f"Selected {n_top_genes} highly variable genes")
 
     # PCA

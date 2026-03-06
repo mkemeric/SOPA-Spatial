@@ -29,6 +29,13 @@ from ..registry import register
 
 def _ensure_deps():
     """Lazy import of heavy optional deps."""
+    # Enable TF32 on Ampere+ GPUs for faster matmuls (negligible precision loss)
+    try:
+        import torch
+        torch.set_float32_matmul_precision("medium")
+    except Exception:
+        pass
+
     deps = {}
     try:
         import squidpy as sq
