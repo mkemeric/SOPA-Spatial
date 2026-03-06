@@ -147,6 +147,9 @@ class SpatialCluster(SpatchModule):
             dict(accelerator="gpu", devices=1) if use_gpu else {}
         )
 
+        # YAML deserialises [5, 10] as a list; accept both list and tuple
+        if isinstance(n_clusters, (list, tuple)):
+            n_clusters = tuple(n_clusters)
         if n_clusters is None or isinstance(n_clusters, tuple):
             k_range = n_clusters or (5, 10)
             autok = cc.tl.ClusterAutoK(
