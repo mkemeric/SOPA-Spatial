@@ -1,0 +1,153 @@
+# ═══════════════════════════════════════════════════════════════════
+# SPATCH Configuration — CODEX COAD (Colon Adenocarcinoma)
+# ═══════════════════════════════════════════════════════════════════
+#
+# Paired spatial transcriptomics (405K cells × 5001 genes) and
+# CODEX proteomics (266K cells × 16 proteins) from the SPATCH
+# benchmarking study (Ren et al. Nature Communications 2025).
+# Tissue: colon adenocarcinoma (COAD).
+# Coordinates are already co-registered.
+#
+# Data prepared by: scripts/prepare_codex_sdata.py
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Custom Modules ───────────────────────────────────────────────
+custom_modules:
+  steps:
+    # ─────────────────────────────────────────────────────────────
+    # Cell Shape Metrics
+    # ─────────────────────────────────────────────────────────────
+    - module: cell_shape_metrics
+      enabled: true
+      config:
+        boundaries_key: cell_boundaries
+        table_key: table
+        add_to_table: true
+        metrics:
+          - area
+          - perimeter
+          - circularity
+          - eccentricity
+          - solidity
+          - aspect_ratio
+
+    # ─────────────────────────────────────────────────────────────
+    # Diffusion Analysis
+    # ─────────────────────────────────────────────────────────────
+    # Uses the high_quality flag (mapped to in_tissue by the prep
+    # script) as the tissue boundary proxy.
+    - module: diffusion_analysis
+      enabled: true
+      config:
+        table_key: table
+        in_tissue_col: in_tissue
+        buffer_distance_um: 50.0
+        compute_distances: true
+        batch_size: 100000
+
+    # ─────────────────────────────────────────────────────────────
+    # Gene–Protein Correlation  (key cross-modal analysis)
+    # ─────────────────────────────────────────────────────────────
+    # Bins both modalities to common spatial grids at multiple
+    # resolutions and computes Spearman correlation for each
+    # gene–protein pair.
+    - module: gene_protein_correlation
+      enabled: true
+      config:
+        gene_table_key: table
+        protein_table_key: codex_table
+        gene_coord_key: spatial
+        protein_coord_key: spatial
+        method: spearman
+        min_spots_per_bin: 1
+        resolution_um:
+          - 100
+          - 200
+          - 300
+          - 400
+          - 500
+        gene_protein_map:
+          EPCAM: Pan-Cytokeratin
+          KRT18: Pan-Cytokeratin
+          CD3E: CD3e
+          CD3D: CD3e
+          CD4: CD4
+          CD8A: CD8
+          FOXP3: FOXP3
+          CD68: CD68
+          MS4A1: CD20
+          NCAM1: CD56
+          CD34: CD34
+          ACTA2: SMA
+          HLA-A: HLA-A
+          ITGAX: CD11c
+          MPO: MPO
+          IDO1: IDO1
+          CD163: CD163
+
+    # ─────────────────────────────────────────────────────────────
+    # Annotation Consensus (9_st_annotation.py)
+    # ─────────────────────────────────────────────────────────────
+    # Uses CellTypist with a pre-trained intestinal tract model
+    # to annotate cell types independently, then compares with the
+    # existing SPATCH annotations in obs['annotation'].
+    - module: annotation_consensus
+      enabled: true
+      config:
+        table_key: table
+        consensus_col: cell_type_consensus
+        unknown_label: unknown
+        tools:
+          celltypist:
+            enabled: true
+            model: Immune_All_Low.pkl
+
+    # ─────────────────────────────────────────────────────────────
+    # Spatial Clustering (10_spatial_cluster.py)
+    # ─────────────────────────────────────────────────────────────
+    # CellCharter-based spatial clustering with latent embedding.
+    - module: spatial_cluster
+      enabled: true
+      config:
+        table_key: table
+        coord_key: spatial
+        data_type: transcriptome
+        n_layers: 5
+        n_clusters: [5, 10]
+        max_runs: 10
+        use_gpu: false
+        cluster_col: spatial_cluster_cc
+        random_state: 12345
+
+    # ─────────────────────────────────────────────────────────────
+    # Pipeline Visualizations (must run last)
+    # ─────────────────────────────────────────────────────────────
+    - module: pipeline_visualizations
+      enabled: true
+      config:
+        table_key: table
+        output_dir: ./results/codex_coad/figures/
+        figure_format: png
+        figure_dpi: 300
+        leiden_resolution: 0.5
+        n_top_genes: 3000
+        marker_genes:
+          - EPCAM
+          - CDX2
+          - CD3E
+          - CD4
+          - CD8A
+          - FOXP3
+          - CD68
+          - MS4A1
+          - ACTA2
+        plots:
+          - spatial_scatter
+          - umap
+          - cluster_composition
+          - marker_heatmap
+          - cell_shape_distributions
+
+# ── Output ───────────────────────────────────────────────────────
+output:
+  output_dir: ./results/codex_coad/
