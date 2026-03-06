@@ -61,7 +61,7 @@ def _format_table(rows: list[dict], columns: list[str]) -> str:
 def _cmd_run(
     sdata_path: str,
     config: str,
-    module: str | None,
+    module: list[str] | None,
     output_dir: str | None,
     save: bool,
     user_dir: str | None,
@@ -88,7 +88,7 @@ def _cmd_run(
     results = run_custom_pipeline(
         sdata,
         config,
-        module_name=module,
+        module_names=module or None,
         output_dir=output_dir,
         verbose=True,
     )
@@ -130,10 +130,10 @@ def run(
     config: str = typer.Option(
         ..., "--config", "-c", help="YAML config file",
     ),
-    module: str = typer.Option(
+    module: list[str] = typer.Option(
         None, "--module", "-m",
-        help="Run only this module (must match a step name in the config). "
-             "Omit to run all enabled modules.",
+        help="Run only these modules (must match step names in the config). "
+             "Repeat -m for multiple modules, or omit to run all.",
     ),
     output_dir: str = typer.Option(
         None, "--output-dir", "-o",

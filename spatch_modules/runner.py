@@ -130,21 +130,24 @@ def _persist_module_outputs(
 def run_custom_pipeline(
     sdata: sd.SpatialData,
     config_path: str | Path,
-    module_name: str | None = None,
+    module_names: list[str] | str | None = None,
     output_dir: str | None = None,
     verbose: bool = True,
+    # Legacy alias
+    module_name: str | None = None,
 ) -> dict[str, Any]:
     """Execute custom modules from a YAML config.
 
     Args:
         sdata: Input SpatialData object (will be modified in-place).
         config_path: Path to YAML configuration file.
-        module_name: If set, run **only** the step matching this name
-            (config is still read from the YAML).  Omit to run all
-            enabled steps.
+        module_names: If set, run **only** these steps (by name).
+            Accepts a single string or list of strings.
+            Omit to run all enabled steps.
         output_dir: Directory for parquet outputs.  Defaults to the
             ``output.output_dir`` value in the YAML config.
         verbose: Whether to print progress messages.
+        module_name: Deprecated — use module_names instead.
 
     Returns:
         Dictionary mapping module names to their results, including:
@@ -155,6 +158,13 @@ def run_custom_pipeline(
         - errors: Error messages (if any)
         - saved_files: Parquet files written by this step
     """
+    # Normalize module_names
+    if module_names is None and module_name is not None:
+        module_names = [module_name]
+    elif isinstance(module_names, str):
+        module_names = [module_names]
+    run_set: set[str] | None = set(module_names) if module_names else None
+
     config = yaml.safe_load(Path(config_path).read_text())
     module_config = config.get("custom_modules", {})
 
@@ -180,8 +190,8 @@ def run_custom_pipeline(
 
         name = step["module"]
 
-        # If a specific module was requested, skip everything else
-        if module_name is not None and name != module_name:
+        # If specific modules were requested, skip everything else
+        if run_set is not None and name not in run_set:
             continue
 
         step_config = step.get("config", {})
