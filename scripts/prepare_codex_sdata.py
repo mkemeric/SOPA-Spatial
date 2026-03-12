@@ -28,6 +28,22 @@ from spatialdata.models import TableModel, ShapesModel
 from spatialdata.transformations import Identity
 
 
+def _sanitize_uns_keys(adata):
+    """Rename uns keys that contain spaces or special characters.
+
+    Newer spatialdata (>=0.6) requires uns keys to match
+    [a-zA-Z0-9_.-]+.  The SPATCH h5ad files contain keys like
+    'CODEX resolution' and 'H&E resolution' that violate this.
+    """
+    import re
+    bad = [k for k in list(adata.uns.keys()) if not re.match(r'^[a-zA-Z0-9_.\-]+$', k)]
+    for k in bad:
+        new_key = re.sub(r'[^a-zA-Z0-9_.\-]', '_', k)
+        adata.uns[new_key] = adata.uns.pop(k)
+    if bad:
+        print(f"  Sanitized {len(bad)} uns key(s): {bad}")
+
+
 def load_cell_boundaries(csv_path: str | Path, max_cells: int | None = None) -> "GeoDataFrame":
     """Convert vertex CSV to a GeoDataFrame of Shapely polygons.
 
@@ -92,6 +108,9 @@ def main(data_dir: str, output_path: str):
         st.obs["in_tissue"] = st.obs["high_quality"].astype(int)
         print(f"  Mapped high_quality → in_tissue ({st.obs['in_tissue'].sum():,} cells)")
 
+    # Sanitize uns keys (spaces/special chars break newer spatialdata)
+    _sanitize_uns_keys(st)
+
     # Ensure required fields for TableModel
     st.obs["cell_id"] = st.obs_names
     st.obs["region"] = "cell_boundaries"
@@ -108,6 +127,8 @@ def main(data_dir: str, output_path: str):
     codex = sc.read_h5ad(data_dir / "proteome" / "adata_codex.h5ad")
     print(f"  {codex.n_obs:,} cells × {codex.n_vars:,} proteins")
     print(f"  Proteins: {list(codex.var_names)}")
+
+    _sanitize_uns_keys(codex)
 
     codex.obs["cell_id"] = codex.obs_names
     codex.obs["region"] = "codex_cells"
