@@ -213,7 +213,9 @@ echo "Step 1: Installing core spatial packages"
 echo "========================================"
 # Pin numpy<2 — many compiled deps (pyarrow, scikit-image, etc.) are
 # built against the numpy 1.x ABI and crash with numpy 2.x.
-pip_install_missing "NumPy compatibility" "numpy>=1.24,<2"
+# Pin zarr<3 — zarr v3 changed the chunk grid API to require uniform
+# chunk shapes; spatialdata/ome-zarr/dask haven't adapted yet.
+pip_install_missing "NumPy + Zarr compatibility" "numpy>=1.24,<2" "zarr>=2.16,<3"
 
 pip_install_missing "Core spatial packages" \
     "spatialdata>=0.6" \

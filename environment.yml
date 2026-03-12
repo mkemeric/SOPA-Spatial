@@ -20,6 +20,7 @@ dependencies:
     - spatialdata>=0.6
     - spatialdata-io>=0.2
     - spatialdata-plot>=0.3
+    - zarr>=2.16,<3         # zarr v3 breaks ome-zarr/spatialdata chunk handling
 
     # Single-cell analysis
     - scanpy>=1.10
