@@ -1,0 +1,23 @@
+# ═══════════════════════════════════════════════════════════════════
+# SPATCH Configuration — CODEX Loader
+# ═══════════════════════════════════════════════════════════════════
+#
+# Loads CODEX/multiomics h5ad data into SpatialData format.
+# Auto-detects the input layout (h5ad multiomics, QuPath, or standard).
+#
+# Usage:
+#   spatch run <output.zarr> -c configs/codex_config.yaml -m codex_loader
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Custom Modules ───────────────────────────────────────────────
+custom_modules:
+  steps:
+    - module: codex_loader
+      enabled: true
+      config:
+        data_path: /mnt/shared/data/codex
+        load_image: false
+
+# ── Output ───────────────────────────────────────────────────────
+output:
+  output_dir: ./results/codex/
