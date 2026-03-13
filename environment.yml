@@ -15,17 +15,20 @@ dependencies:
   # Core spatial data stack
   - pip
   - pip:
-    # SpatialData + Sopa (stock from PyPI)
-    - sopa>=2.1
-    - spatialdata>=0.6
-    - spatialdata-io>=0.2
-    - spatialdata-plot>=0.3
-    - zarr>=2.16,<3         # zarr v3 breaks ome-zarr/spatialdata chunk handling
+    # SpatialData + Sopa — pinned to validated versions.
+    # See requirements-spatial-stack.txt for the canonical pins.
+    - sopa==2.2.1
+    - spatialdata==0.7.2
+    - spatialdata-io==0.6.0
+    - spatialdata-plot==0.2.14
+    - zarr==3.1.5
+    - ome-zarr==0.13.0
+    - dask==2026.1.1
 
     # Single-cell analysis
-    - scanpy>=1.10
-    - squidpy>=1.5
-    - anndata>=0.10
+    - scanpy==1.11.1
+    - squidpy==1.6.2
+    - anndata==0.12.10
 
     # Segmentation
     - cellpose>=3.0

@@ -211,16 +211,25 @@ echo ""
 echo "========================================"
 echo "Step 1: Installing core spatial packages"
 echo "========================================"
-# Pin numpy<2 — many compiled deps (pyarrow, scikit-image, etc.) are
-# built against the numpy 1.x ABI and crash with numpy 2.x.
-# Pin zarr<3 — zarr v3 changed the chunk grid API to require uniform
-# chunk shapes; spatialdata/ome-zarr/dask haven't adapted yet.
-pip_install_missing "NumPy + Zarr compatibility" "numpy>=1.24,<2" "zarr>=2.16,<3"
-
-pip_install_missing "Core spatial packages" \
-    "spatialdata>=0.6" \
-    "spatialdata-io>=0.2" \
-    "spatialdata-plot>=0.2.14,<0.3"
+# Install from pinned versions — the spatialdata stack is fragile
+# across zarr/dask/ome-zarr boundaries.  These versions are validated
+# from a known-good environment.  See requirements-spatial-stack.txt.
+if [ -f "$SCRIPT_DIR/requirements-spatial-stack.txt" ]; then
+    echo "Installing pinned spatial stack from requirements-spatial-stack.txt..."
+    $PIP install -r "$SCRIPT_DIR/requirements-spatial-stack.txt"
+    echo "✓ Pinned spatial stack installed"
+else
+    echo "⚠️  requirements-spatial-stack.txt not found — falling back to loose pins"
+    pip_install_missing "Core spatial packages" \
+        "spatialdata>=0.7" \
+        "spatialdata-io>=0.6" \
+        "spatialdata-plot>=0.2.14" \
+        "zarr>=3.1" \
+        "ome-zarr>=0.13" \
+        "dask>=2026.1" \
+        "numpy>=2.4" \
+        "sopa>=2.2"
+fi
 
 echo ""
 echo "========================================"
@@ -243,13 +252,8 @@ pip_install_missing "Analysis packages" \
     jupyter \
     ipykernel
 
-echo ""
-echo "========================================"
-echo "Step 3a: Installing sopa from PyPI"
-echo "========================================"
-pip_install_missing "sopa" "sopa>=2.1"
-
 # Clone the upstream sopa repo (shallow) for Snakemake workflow files.
+# sopa itself is installed via the pinned stack in Step 1.
 # The workflow/ directory is not distributed in the PyPI wheel.
 if [ ! -d "sopa/workflow/Snakefile" ]; then
     echo "Cloning sopa repo (shallow) for Snakemake workflow files..."
