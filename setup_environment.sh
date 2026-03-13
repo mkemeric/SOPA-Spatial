@@ -1,18 +1,43 @@
 #!/bin/bash
 # Setup script for SPATCH multiomics environment
-# Installs stock sopa + spatialdata from PyPI, plus spatch_modules in editable mode.
+# Source this to activate the environment:
+#   source setup_environment.sh
+# First run: full install.  Subsequent runs: activate + export only.
 
-set -e  # Exit on error
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# ── Environment exports (always set) ─────────────────────────
+export PYTHONWARNINGS="ignore::FutureWarning:scanpy,ignore::UserWarning:spatialdata"
+export SOPA_PARALLELIZATION_BACKEND=dask
+
+# ── Quick activation ─────────────────────────────────────────
+# If the spatch conda env exists with all core packages, just
+# activate and skip the full setup.
+if command -v conda >/dev/null 2>&1 && conda env list 2>/dev/null | grep -q "^spatch "; then
+    eval "$(conda shell.$(basename $SHELL) hook)"
+    conda activate spatch 2>/dev/null
+    if python3 -c "
+import importlib.metadata
+for p in ['spatialdata','sopa','zarr','scanpy','squidpy','cellpose','spatch_modules']:
+    importlib.metadata.version(p)
+" 2>/dev/null; then
+        echo "✓ spatch environment activated (all core packages present)"
+        echo "  PYTHONWARNINGS and SOPA_PARALLELIZATION_BACKEND exported"
+        return 0 2>/dev/null || exit 0
+    fi
+    # Packages missing — fall through to full setup
+    echo "spatch env found but some packages missing — running full setup..."
+    echo ""
+fi
+
+# ── Full setup (first run / repair) ─────────────────────────
+cd "$SCRIPT_DIR"
 
 echo "========================================"
 echo "SPATCH Environment Setup"
 echo "========================================"
 echo ""
-
-# Get the directory where this script is located
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR"
-
 echo "Working directory: $SCRIPT_DIR"
 echo ""
 
@@ -382,11 +407,15 @@ echo "========================================"
 echo ""
 if [[ "$USING_CONDA" == "true" ]]; then
     echo "Conda environment: $CONDA_DEFAULT_ENV"
-    echo "  Activate with:  conda activate spatch"
+    echo "  Re-activate with:  source setup_environment.sh"
 elif [[ -n "$VIRTUAL_ENV" ]]; then
     echo "Virtual environment: $VIRTUAL_ENV"
-    echo "  Activate with:  source .venv/bin/activate"
+    echo "  Re-activate with:  source setup_environment.sh"
 fi
+echo ""
+echo "Environment exports set:"
+echo "  PYTHONWARNINGS                 (scanpy/spatialdata warnings suppressed)"
+echo "  SOPA_PARALLELIZATION_BACKEND=dask"
 echo ""
 echo "Run the Janesick pipeline:"
 echo "  CLI (local):      ./run_janesick_pipeline.sh"
