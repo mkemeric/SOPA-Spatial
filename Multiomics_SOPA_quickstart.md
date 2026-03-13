@@ -34,13 +34,6 @@ This will:
 - Register a **SPATCH** Jupyter kernel
 - Clone the sopa repo (shallow) for Snakemake workflow files
 
-If your home directory is small (<15 GB free), the script auto-redirects
-conda/pip storage to a larger volume. Override with:
-
-```bash
-export SPATCH_STORAGE=/mnt/user
-bash setup_environment.sh
-```
 
 ### 1.3 Activate the Environment
 
@@ -55,19 +48,6 @@ conda activate spatch
 ```bash
 python3 setup_local_imports.py
 ```
-
-You should see ✓ marks for spatialdata, sopa, spatch_modules, scanpy,
-and squidpy, plus a confirmation that the `sopa` CLI is on PATH.
-
-### 1.5 Install COAD-Specific Dependencies
-
-The COAD pipeline uses annotation and spatial clustering modules that
-require additional packages:
-
-```bash
-pip install celltypist>=1.6 cellcharter>=0.3 scvi-tools>=1.0 scarches>=0.6
-```
-
 ---
 
 ## 2. Pipeline 1: Janesick Breast Cancer (Xenium)
@@ -131,10 +111,16 @@ sopa segmentation cellpose results/janesick.zarr \
 > - CPU only: ~40+ hours — not recommended
 
 **Step 4 — Resolve** boundary conflicts between adjacent patches:
-
+    Look for segmentation info block:  
+```[INFO] (sopa.segmentation.stainings) Added 280492 cell boundaries in sdata['cellpose_boundaries']
+[INFO] (sopa.cli.utils) Segmentation is already resolved. Don't run `sopa resolve`.
+```
+If the above info lines are posted no need to run the below commnad
+    
 ```bash
 sopa resolve cellpose results/janesick.zarr
 ```
+If this drops a stack trace.  Likely the info block above was over looked.  If it is there just proceed to the next step.  
 
 **Step 5 — Aggregate** transcript counts per cell:
 
@@ -237,6 +223,11 @@ The dataset contains:
 ### 3.2 Prepare SpatialData Zarr
 
 Convert the raw h5ad files and boundary CSV into a SpatialData zarr:
+
+```
+spatch run ~/mike/results/codex.zarr -c ~/SOPA-Spatial/configs/codex_config.yaml -m codex_loader
+```
+spatch CLI above is reccommened: It is an implementation of custom dataloading  
 
 ```bash
 python scripts/prepare_codex_sdata.py /mnt/shared/data/codex results/codex.zarr
