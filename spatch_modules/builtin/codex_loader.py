@@ -430,10 +430,12 @@ class CODEXLoader(SpatchModule):
         print(f"  {len(df):,} vertex rows")
 
         grouped = df.groupby("cell_id")
+        # NOTE: dict(grouped) triggers a pandas bug (#53287) in pandas
+        # >=2.3 — use a dict comprehension as the workaround.
         if max_cells:
-            grouped = dict(list(grouped)[:max_cells])
+            grouped = {k: v for k, v in list(grouped)[:max_cells]}
         else:
-            grouped = dict(grouped)
+            grouped = {k: v for k, v in grouped}
 
         cell_ids: list = []
         polygons: list = []
