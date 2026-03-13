@@ -31,7 +31,7 @@ dependencies:
     - anndata==0.12.10
 
     # Segmentation
-    - cellpose>=3.0
+    - cellpose==3.1.1.2
     - opencv-python-headless
 
     # Spatial analysis

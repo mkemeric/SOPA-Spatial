@@ -29,4 +29,4 @@ scanpy==1.11.1
 squidpy==1.6.2
 
 # Segmentation
-cellpose==3.1.2
+cellpose==3.1.1.2
