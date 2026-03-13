@@ -10,6 +10,7 @@ issue that blocks zarr write-back, and enables true per-module
 parallelism / container execution.
 """
 
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -250,6 +251,7 @@ def run_custom_pipeline(
         except Exception as e:
             if verbose:
                 print(f"  ✗ {name}: Failed - {e}")
+                traceback.print_exc()
             results[name] = {
                 "status": "failed",
                 "errors": [str(e)],
