@@ -146,6 +146,28 @@ if command -v conda >/dev/null 2>&1 || command -v mamba >/dev/null 2>&1; then
     USING_CONDA=true
     echo "Conda env: $CONDA_DEFAULT_ENV"
 
+    # ── Install conda activation hooks (idempotent) ──────────
+    # These run automatically on every `conda activate spatch`
+    # so env vars persist across sessions without sourcing this script.
+    ACTIVATE_D="$CONDA_PREFIX/etc/conda/activate.d"
+    DEACTIVATE_D="$CONDA_PREFIX/etc/conda/deactivate.d"
+    mkdir -p "$ACTIVATE_D" "$DEACTIVATE_D"
+
+    cat > "$ACTIVATE_D/spatch_env.sh" <<'HOOK'
+#!/bin/bash
+export PYTHONWARNINGS="ignore::FutureWarning:scanpy,ignore::UserWarning:spatialdata"
+export SOPA_PARALLELIZATION_BACKEND=dask
+HOOK
+
+    cat > "$DEACTIVATE_D/spatch_env.sh" <<'HOOK'
+#!/bin/bash
+unset PYTHONWARNINGS
+unset SOPA_PARALLELIZATION_BACKEND
+HOOK
+
+    chmod +x "$ACTIVATE_D/spatch_env.sh" "$DEACTIVATE_D/spatch_env.sh"
+    echo "✓ Conda activation hooks installed"
+
 # Option 2: Already inside a venv or conda env — use it as-is.
 elif [[ -n "${VIRTUAL_ENV}" ]] || [[ -n "${CONDA_DEFAULT_ENV}" ]]; then
     echo "Using active environment: ${VIRTUAL_ENV:-$CONDA_DEFAULT_ENV}"
