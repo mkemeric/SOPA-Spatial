@@ -28,3 +28,4 @@ build/
 
 # AWS credentials and config (security)
 .aws/
+.*.swp
