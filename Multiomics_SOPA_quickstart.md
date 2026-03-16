@@ -18,7 +18,7 @@ Jupyter.
 
 ```bash
 git clone https://github.com/mkemeric/SOPA-Spatial.git
-cd SOPA-Spatial
+cd /mnt/shared/SOPA-Spatial
 ```
 
 ### 1.2 Run the Setup Script
