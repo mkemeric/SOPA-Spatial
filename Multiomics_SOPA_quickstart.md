@@ -321,6 +321,10 @@ spatch run results/codex.zarr \
 
 ---
 
+_______  WIP ___________________
+
+   Optimally this would not be done in notebooks but would like to make this secontion availaable.  It is curently Under construction.  
+
 ## 4. Viewing Results in Jupyter
 
 ### 4.1 Start Jupyter
