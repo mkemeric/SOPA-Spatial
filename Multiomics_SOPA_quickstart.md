@@ -343,24 +343,56 @@ python3 -m ipykernel install --user --name spatch --display-name "SPATCH"
 
 ### 4.2 Notebook Setup Cell
 
-Every notebook should start with a setup cell that verifies all
-packages and configures matplotlib/scanpy:
+Every notebook should start with a setup cell that resolves the
+project root, adds it to `sys.path`, and changes the working directory
+so all relative paths (e.g. `results/janesick.zarr`) resolve correctly:
 
 ```python
+import sys, os
+from pathlib import Path
+
+PROJECT_ROOT = Path('..').resolve()
+sys.path.insert(0, str(PROJECT_ROOT))
+os.chdir(PROJECT_ROOT)
+
 from setup_local_imports import setup_notebook_environment
 setup_notebook_environment()
 ```
 
+> **Why `os.chdir`?** Jupyter sets the working directory to the
+> notebook's folder (`notebooks/`), but data lives under
+> `results/` at the project root. The `os.chdir` ensures all
+> relative paths work without modification.
+
 You should see ✓ marks for all core packages. If anything is missing,
 re-run `source setup_environment.sh` in a terminal.
 
-### 4.3 Browse Figures
+### 4.3 Pre-built Notebooks
+
+Two ready-to-run notebooks are in `notebooks/`:
+
+- **`01_spatch_workflow_example.ipynb`** — End-to-end SPATCH workflow:
+  list modules, load data, QC, filtering, PCA/UMAP/Leiden, spatial
+  analysis, cell shape metrics, and save results.
+- **`02_janesick_breast_cancer_analysis.ipynb`** — Detailed Janesick
+  dataset analysis: marker gene scoring, differential expression,
+  neighborhood enrichment, SPATCH modules, and parquet export.
+
+Both notebooks include a smart data-path fallback: they try
+`results/janesick.zarr` first, then fall back to the shared mount at
+`/mnt/shared/hannah-aichelman/janesick.zarr` if the local zarr is
+incomplete.
+
+To run: open either notebook in JupyterLab, select the **SPATCH**
+kernel, and **Run All Cells**.
+
+### 4.4 Browse Figures
 
 In JupyterLab, navigate to `results/janesick_breast_cancer/figures/` or
 `results/codex_coad/figures/` in the file browser and double-click any
 PNG to view it.
 
-### 4.4 Display Figures in a Notebook
+### 4.5 Display Figures in a Notebook
 
 ```python
 from IPython.display import Image, display
@@ -375,7 +407,7 @@ for png in sorted(fig_dir.glob("*.png")):
 
 Replace the path with `results/codex_coad/figures` for COAD figures.
 
-### 4.5 Load and Explore the SpatialData Object
+### 4.6 Load and Explore the SpatialData Object
 
 ```python
 import spatialdata as sd
@@ -404,7 +436,7 @@ adata_codex = sdata_coad.tables["codex_table"]
 print(f"CODEX: {adata_codex.n_obs:,} cells × {adata_codex.n_vars:,} proteins")
 ```
 
-### 4.6 Load SPATCH Analysis Results from Parquet
+### 4.7 Load SPATCH Analysis Results from Parquet
 
 Each SPATCH module saves its tabular output as parquet. Load them
 directly into pandas:
@@ -433,7 +465,7 @@ annot = pd.read_parquet("results/codex_coad/spatch/annotation_consensus.parquet"
 print(annot["cell_type_consensus"].value_counts().head(20))
 ```
 
-### 4.7 Interactive Visualization with Scanpy
+### 4.8 Interactive Visualization with Scanpy
 
 ```python
 import scanpy as sc
@@ -448,7 +480,7 @@ sc.pl.umap(adata, color="leiden", show=True)
 sc.pl.spatial(adata, color="leiden", spot_size=10, show=True)
 ```
 
-### 4.8 Run Individual SPATCH Modules Interactively
+### 4.9 Run Individual SPATCH Modules Interactively
 
 ```python
 from spatch_modules.runner import run_single_module
@@ -460,7 +492,7 @@ sdata = sd.read_zarr("results/janesick.zarr")
 sdata = run_single_module(
     sdata, "cell_shape_metrics",
     output_dir="results/janesick_breast_cancer/",
-    boundaries_key="cell_boundaries",
+    boundaries_key="cellpose_boundaries",
     table_key="table",
 )
 
@@ -468,7 +500,7 @@ sdata = run_single_module(
 print(sdata.tables["table"].obs[["area", "circularity", "eccentricity"]].describe())
 ```
 
-### 4.9 Compare Janesick vs COAD Side-by-Side
+### 4.10 Compare Janesick vs COAD Side-by-Side
 
 ```python
 import matplotlib.pyplot as plt
