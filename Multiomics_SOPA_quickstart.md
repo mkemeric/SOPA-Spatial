@@ -24,24 +24,41 @@ cd /mnt/shared/SOPA-Spatial
 ### 1.2 Run the Setup Script
 
 ```bash
-bash setup_environment.sh
+source setup_environment.sh
 ```
 
 This will:
 - Create a `spatch` conda environment (Python 3.12)
-- Install sopa, spatialdata, scanpy, cellpose, snakemake, and all dependencies
+- Install a **frozen, validated dependency stack** from
+  `requirements-spatial-stack.txt` (spatialdata, sopa, zarr, dask, etc.)
+- Install analysis packages (scanpy, cellpose, snakemake, etc.)
 - Install `spatch_modules` in editable mode
 - Register a **SPATCH** Jupyter kernel
 - Clone the sopa repo (shallow) for Snakemake workflow files
+- Export `PYTHONWARNINGS` and `SOPA_PARALLELIZATION_BACKEND=dask`
 
+If your home directory is small (<15 GB free), the script auto-redirects
+conda/pip storage to a larger volume. Override with:
+
+```bash
+export SPATCH_STORAGE=/mnt/user
+source setup_environment.sh
+```
+
+> **Note:** Use `source` (not `bash`) so the environment stays active in
+> your current shell. On subsequent runs, the script detects the existing
+> environment and activates instantly.
 
 ### 1.3 Activate the Environment
 
 Every time you open a new terminal session:
 
 ```bash
-conda activate spatch
+source setup_environment.sh
 ```
+
+This is equivalent to `conda activate spatch` but also sets the required
+environment variables (`PYTHONWARNINGS`, `SOPA_PARALLELIZATION_BACKEND`).
 
 ### 1.4 Verify Installation
 
@@ -220,9 +237,11 @@ The dataset contains:
 - `proteome/adata_codex.h5ad` — 266K cells × 16 proteins
 - `segmentation_mask/cell_boundaries.csv` — cell boundary polygons
 
-### 3.2 Prepare SpatialData Zarr
+### 3.2 Load Data into SpatialData
 
-Convert the raw h5ad files and boundary CSV into a SpatialData zarr:
+The `codex_loader` module reads the h5ad files and boundary CSV, builds
+cell polygons, maps `high_quality` → `in_tissue`, and assembles
+everything into a SpatialData zarr:
 
 ```
 spatch run ~/mike/results/codex.zarr -c ~/SOPA-Spatial/configs/codex_config.yaml -m codex_loader
@@ -230,19 +249,21 @@ spatch run ~/mike/results/codex.zarr -c ~/SOPA-Spatial/configs/codex_config.yaml
 spatch CLI above is reccommened: It is an implementation of custom dataloading  
 
 ```bash
-python scripts/prepare_codex_sdata.py /mnt/shared/data/codex results/codex.zarr
+spatch run results/codex.zarr \
+  -c configs/codex_config.yaml \
+  -m codex_loader
 ```
 
-This reads both h5ad files, builds cell boundary polygons from the CSV,
-maps the `high_quality` flag to `in_tissue` for diffusion analysis,
-and writes everything to `results/codex.zarr`.
-
-Takes ~2–5 minutes depending on I/O speed.
+This auto-detects the h5ad multiomics layout under `/mnt/shared/data/codex`
+(configured in `codex_config.yaml`). Takes ~2–5 minutes.
 
 > **Note:** If the zarr already exists, delete it first:
 > ```bash
 > rm -rf results/codex.zarr
 > ```
+>
+> **Legacy:** The standalone `scripts/prepare_codex_sdata.py` still works
+> but is superseded by the `codex_loader` module.
 
 ### 3.3 SPATCH Custom Modules
 
@@ -307,25 +328,39 @@ spatch run results/codex.zarr \
 From a terminal with the `spatch` conda environment active:
 
 ```bash
-conda activate spatch
+source setup_environment.sh   # activates env + sets exports
 jupyter lab
 ```
 
 Or, if you are inside a Jupyter container, select the **SPATCH** kernel
-from the kernel picker. If the kernel is missing:
+from the kernel picker (not the default "Python 3" kernel). If the
+kernel is missing:
 
 ```bash
-conda activate spatch
+source setup_environment.sh
 python3 -m ipykernel install --user --name spatch --display-name "SPATCH"
 ```
 
-### 4.2 Browse Figures
+### 4.2 Notebook Setup Cell
+
+Every notebook should start with a setup cell that verifies all
+packages and configures matplotlib/scanpy:
+
+```python
+from setup_local_imports import setup_notebook_environment
+setup_notebook_environment()
+```
+
+You should see ✓ marks for all core packages. If anything is missing,
+re-run `source setup_environment.sh` in a terminal.
+
+### 4.3 Browse Figures
 
 In JupyterLab, navigate to `results/janesick_breast_cancer/figures/` or
 `results/codex_coad/figures/` in the file browser and double-click any
 PNG to view it.
 
-### 4.3 Display Figures in a Notebook
+### 4.4 Display Figures in a Notebook
 
 ```python
 from IPython.display import Image, display
@@ -340,7 +375,7 @@ for png in sorted(fig_dir.glob("*.png")):
 
 Replace the path with `results/codex_coad/figures` for COAD figures.
 
-### 4.4 Load and Explore the SpatialData Object
+### 4.5 Load and Explore the SpatialData Object
 
 ```python
 import spatialdata as sd
@@ -369,7 +404,7 @@ adata_codex = sdata_coad.tables["codex_table"]
 print(f"CODEX: {adata_codex.n_obs:,} cells × {adata_codex.n_vars:,} proteins")
 ```
 
-### 4.5 Load SPATCH Analysis Results from Parquet
+### 4.6 Load SPATCH Analysis Results from Parquet
 
 Each SPATCH module saves its tabular output as parquet. Load them
 directly into pandas:
@@ -398,7 +433,7 @@ annot = pd.read_parquet("results/codex_coad/spatch/annotation_consensus.parquet"
 print(annot["cell_type_consensus"].value_counts().head(20))
 ```
 
-### 4.6 Interactive Visualization with Scanpy
+### 4.7 Interactive Visualization with Scanpy
 
 ```python
 import scanpy as sc
@@ -413,7 +448,7 @@ sc.pl.umap(adata, color="leiden", show=True)
 sc.pl.spatial(adata, color="leiden", spot_size=10, show=True)
 ```
 
-### 4.7 Run Individual SPATCH Modules Interactively
+### 4.8 Run Individual SPATCH Modules Interactively
 
 ```python
 from spatch_modules.runner import run_single_module
@@ -433,7 +468,7 @@ sdata = run_single_module(
 print(sdata.tables["table"].obs[["area", "circularity", "eccentricity"]].describe())
 ```
 
-### 4.8 Compare Janesick vs COAD Side-by-Side
+### 4.9 Compare Janesick vs COAD Side-by-Side
 
 ```python
 import matplotlib.pyplot as plt
@@ -507,8 +542,8 @@ bash run_janesick_pipeline.sh
 # ── Janesick (SPATCH modules only, if sopa already ran) ──
 spatch run results/janesick.zarr -c configs/janesick_breast_cancer.yaml
 
-# ── COAD (prepare data + SPATCH modules) ──
-python scripts/prepare_codex_sdata.py /mnt/shared/data/codex results/codex.zarr
+# ── COAD (load data + SPATCH modules) ──
+spatch run results/codex.zarr -c configs/codex_config.yaml -m codex_loader
 spatch run results/codex.zarr -c configs/codex_coad.yaml
 
 # ── List available modules ──

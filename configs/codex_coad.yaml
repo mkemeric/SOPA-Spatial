@@ -8,7 +8,7 @@
 # Tissue: colon adenocarcinoma (COAD).
 # Coordinates are already co-registered.
 #
-# Data prepared by: scripts/prepare_codex_sdata.py
+# Data prepared by: spatch run -c configs/codex_config.yaml -m codex_loader
 # ═══════════════════════════════════════════════════════════════════
 
 # ── Custom Modules ───────────────────────────────────────────────
