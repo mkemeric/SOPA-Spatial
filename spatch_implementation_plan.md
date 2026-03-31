@@ -1,7 +1,7 @@
 # SPATCH Implementation Plan
 ## Rebuilding on the SpatialData + Sopa Platform
 
-**Prepared for:** University of Rochester — St. Jude Spatial Transcriptomics Collaboration  
+
 **Date:** February 2026  
 **Version:** 1.0
 

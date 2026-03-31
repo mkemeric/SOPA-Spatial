@@ -5,7 +5,7 @@ This guide explains how to install the SPATCH multiomics environment. The projec
 ## Quick Start
 
 ```bash
-cd /Users/mike/projects/University_of_Rochester/multiomics
+cd /Users/mike/projects/research/multiomics
 ./setup_environment.sh
 ```
 
