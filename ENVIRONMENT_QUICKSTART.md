@@ -306,20 +306,34 @@ has all the required packages.
 
 **Step 3 — Add the environment setup cell:**
 
-Insert a new cell at the very top of the notebook and run:
+Every notebook should start with a setup cell that resolves the project
+root, adds it to `sys.path`, and changes the working directory so all
+relative paths (e.g. `results/janesick.zarr`) resolve correctly:
 
 ```python
+import sys, os
+from pathlib import Path
+
+PROJECT_ROOT = Path('..').resolve()
+sys.path.insert(0, str(PROJECT_ROOT))
+os.chdir(PROJECT_ROOT)
+
 from setup_local_imports import setup_notebook_environment
 setup_notebook_environment()
 ```
 
-This verifies all imports and configures matplotlib/scanpy for the
-notebook. You should see a list of packages with ✓ marks.
+> **Why `os.chdir`?** Jupyter sets the working directory to the
+> notebook’s folder (`notebooks/`), but data lives under `results/` at
+> the project root. The `os.chdir` ensures all relative paths work
+> without modification.
+
+You should see ✓ marks for all core packages. If anything is missing,
+re-run `source setup_environment.sh` in a terminal.
 
 **Step 4 — Run cells sequentially.**
 
 The notebook walks through:
-1. Loading Xenium data with `spatialdata_io`
+1. Loading the zarr dataset with `spatialdata`
 2. Quality control (transcript counts, gene counts, mitochondrial %)
 3. Filtering and normalization
 4. Clustering (PCA, UMAP, Leiden)
@@ -329,9 +343,134 @@ The notebook walks through:
 Each cell has comments explaining what it does. Run them in order from
 top to bottom.
 
+**Pre-built Notebooks:**
+
+Two ready-to-run notebooks are in `notebooks/`:
+
+- **`01_spatch_workflow_example.ipynb`** — End-to-end SPATCH workflow:
+  list modules, load data, QC, filtering, PCA/UMAP/Leiden, spatial
+  analysis, cell shape metrics, and save results.
+- **`02_janesick_breast_cancer_analysis.ipynb`** — Detailed Janesick
+  dataset analysis: marker gene scoring, differential expression,
+  neighborhood enrichment, SPATCH modules, and parquet export.
+
+Both notebooks include a smart data-path fallback: they try
+`results/janesick.zarr` first, then fall back to the shared mount at
+`/mnt/shared/hannah-aichelman/janesick.zarr` if the local zarr is
+incomplete.
+
+To run: open either notebook in JupyterLab, select the **SPATCH**
+kernel, and **Run All Cells**.
+
 ---
 
-## 6. Run SPATCH Custom Modules
+## 6. Pipeline 2: CODEX COAD (Colon Adenocarcinoma)
+
+This pipeline uses the SPATCH benchmarking dataset: paired spatial
+transcriptomics (405K cells × 5001 genes) and CODEX proteomics
+(266K cells × 16 proteins) from colon adenocarcinoma tissue.
+
+Unlike Janesick, this data does **not** go through sopa’s convert/segment
+steps — it arrives as pre-processed h5ad files that are assembled into
+SpatialData format by a preparation script.
+
+**Raw data:** `/mnt/shared/data/codex/`
+**Output zarr:** `results/codex.zarr`
+**SPATCH output:** `results/codex_coad/`
+
+### 6.1 Verify Source Data
+
+```bash
+ls /mnt/shared/data/codex/transcriptome/adata.h5ad
+ls /mnt/shared/data/codex/proteome/adata_codex.h5ad
+ls /mnt/shared/data/codex/segmentation_mask/cell_boundaries.csv
+```
+
+The dataset contains:
+- `transcriptome/adata.h5ad` — 405K cells × 5001 genes
+- `proteome/adata_codex.h5ad` — 266K cells × 16 proteins
+- `segmentation_mask/cell_boundaries.csv` — cell boundary polygons
+
+### 6.2 Load Data into SpatialData
+
+The `codex_loader` module reads the h5ad files and boundary CSV, builds
+cell polygons, maps `high_quality` → `in_tissue`, and assembles
+everything into a SpatialData zarr:
+
+```bash
+spatch run results/codex.zarr \
+  -c configs/codex_config.yaml \
+  -m codex_loader
+```
+
+This auto-detects the h5ad multiomics layout under `/mnt/shared/data/codex`
+(configured in `codex_config.yaml`). Takes ~2–5 minutes.
+
+> **Note:** If the zarr already exists, delete it first:
+> ```bash
+> rm -rf results/codex.zarr
+> ```
+>
+> **Legacy:** The standalone `scripts/prepare_codex_sdata.py` still works
+> but is superseded by the `codex_loader` module.
+
+### 6.3 SPATCH Custom Modules
+
+The COAD config runs six modules in order:
+
+1. **cell_shape_metrics** — morphological analysis of 405K cells
+2. **diffusion_analysis** — uses `high_quality` flag as tissue proxy
+3. **gene_protein_correlation** — cross-modal Spearman correlation between
+   ST gene expression and CODEX protein levels at multiple spatial
+   resolutions (100–500 µm)
+4. **annotation_consensus** — CellTypist automated cell type annotation
+   using the `Immune_All_Low.pkl` pre-trained model
+5. **spatial_cluster** — CellCharter-based spatial clustering with scVI
+   latent embedding (5–10 clusters)
+6. **pipeline_visualizations** — preprocessing + 5 figure types
+
+Run all modules:
+
+```bash
+spatch run results/codex.zarr \
+  --config configs/codex_coad.yaml
+```
+
+Takes ~10–20 minutes (annotation and clustering are the slowest steps).
+
+To run specific modules:
+
+```bash
+# Run just the cross-modal correlation analysis
+spatch run results/codex.zarr \
+  -c configs/codex_coad.yaml \
+  -m gene_protein_correlation
+
+# Run multiple specific modules
+spatch run results/codex.zarr \
+  -c configs/codex_coad.yaml \
+  -m cell_shape_metrics -m diffusion_analysis
+```
+
+### 6.4 Expected Outputs
+
+**Figures** (in `results/codex_coad/figures/`):
+- `spatial_scatter.png` — cells on tissue, colored by Leiden cluster
+- `umap_leiden.png` — UMAP embedding
+- `cluster_composition.png` — cell counts per cluster
+- `marker_heatmap.png` — COAD marker expression (EPCAM, CDX2, CD3E, etc.)
+- `cell_shape_distributions.png` — morphology by cluster
+
+**Parquet files** (in `results/codex_coad/spatch/`):
+- Cell shape metrics for 405K cells
+- Diffusion ratios per gene
+- Gene-protein correlation (13 pairs, mean Spearman r ~0.48)
+- CellTypist annotations (98 cell types)
+- CellCharter spatial clusters (5–10 clusters)
+
+---
+
+## 7. Run SPATCH Custom Modules
 
 After the sopa pipeline completes (via any of the three options above),
 you can run the SPATCH custom analysis modules. These add tissue masking,
@@ -433,7 +572,10 @@ Or run a single module interactively:
 ```python
 from spatch_modules import run_single_module
 
-sdata = run_single_module(sdata, "cell_shape_metrics", output_dir="results/")
+sdata = run_single_module(sdata, "cell_shape_metrics",
+    output_dir="results/janesick_breast_cancer/",
+    boundaries_key="cellpose_boundaries",
+    table_key="table")
 ```
 
 ### Generated figures
@@ -481,9 +623,38 @@ plt.tight_layout()
 plt.show()
 ```
 
+### Viewing CODEX COAD results
+
+```python
+import spatialdata as sd
+
+sdata_coad = sd.read_zarr("results/codex.zarr")
+print(sdata_coad)
+
+# Transcriptome table
+adata_st = sdata_coad.tables["table"]
+print(f"ST: {adata_st.n_obs:,} cells × {adata_st.n_vars:,} genes")
+
+# CODEX protein table
+adata_codex = sdata_coad.tables["codex_table"]
+print(f"CODEX: {adata_codex.n_obs:,} cells × {adata_codex.n_vars:,} proteins")
+```
+
+```python
+import pandas as pd
+
+# Gene-protein correlation
+corr = pd.read_parquet("results/codex_coad/spatch/gene_protein_correlation.parquet")
+print(corr.sort_values("spearman_r", ascending=False))
+
+# CellTypist annotations
+annot = pd.read_parquet("results/codex_coad/spatch/annotation_consensus.parquet")
+print(annot["cell_type_consensus"].value_counts().head(20))
+```
+
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 **"No module named 'spatialdata'" or other import errors:**
 Make sure you selected the **SPATCH** kernel (notebooks) or ran
@@ -508,17 +679,63 @@ conda activate spatch
 python3 -m ipykernel install --user --name spatch --display-name "SPATCH"
 ```
 
+**CellTypist model download fails (COAD):**
+CellTypist downloads the `Immune_All_Low.pkl` model on first run. If
+behind a proxy, pre-download:
+```bash
+python -c "import celltypist; celltypist.models.download_models(model='Immune_All_Low.pkl')"
+```
+
+**spatial_cluster fails with CUDA errors (COAD):**
+The COAD config sets `use_gpu: false` by default for spatial clustering.
+If you have a GPU and want to use it, set `use_gpu: true` in
+`configs/codex_coad.yaml` and ensure PyTorch CUDA is installed.
+
+**Disk space issues:**
+The environment needs ~15 GB. Use `SPATCH_STORAGE` to redirect to a
+larger volume before running setup (see [Addendum A](#addendum-a-storage-redirection)).
+
 See [Addendum C](#addendum-c-additional-troubleshooting) for less common
-issues (disk quota, externally-managed environments, OpenCV, boundary keys).
+issues (externally-managed environments, OpenCV, boundary keys).
 
 ---
 
-## 8. Reference
+## 9. Quick Reference
+
+```bash
+# Activate environment
+conda activate spatch
+
+# ── Janesick (full pipeline) ──
+bash run_janesick_pipeline.sh
+
+# ── Janesick (SPATCH modules only, if sopa already ran) ──
+spatch run results/janesick.zarr -c configs/janesick_breast_cancer.yaml
+
+# ── COAD (load data + SPATCH modules) ──
+spatch run results/codex.zarr -c configs/codex_config.yaml -m codex_loader
+spatch run results/codex.zarr -c configs/codex_coad.yaml
+
+# ── List available modules ──
+spatch list
+
+# ── Describe a module ──
+spatch describe gene_protein_correlation
+
+# ── Run a single module ──
+spatch run results/codex.zarr -c configs/codex_coad.yaml -m annotation_consensus
+```
+
+---
+
+## 10. Reference
 
 - **Full setup docs**: `docs/ENVIRONMENT_SETUP.md`
 - **Janesick pipeline details**: `docs/JANESICK_PIPELINE_SETUP.md`
 - **Sopa config format**: `configs/janesick_sopa.yaml`
-- **SPATCH module config**: `configs/janesick_breast_cancer.yaml`
+- **SPATCH module config (Janesick)**: `configs/janesick_breast_cancer.yaml`
+- **SPATCH module config (COAD)**: `configs/codex_coad.yaml`
+- **CODEX loader config**: `configs/codex_config.yaml`
 - **Sopa documentation**: https://qupath.github.io/sopa/
 - **SpatialData documentation**: https://spatialdata.scverse.org/
 

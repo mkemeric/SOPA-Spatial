@@ -59,25 +59,31 @@ results = run_custom_pipeline(sdata, "configs/janesick_breast_cancer.yaml")
 
 ## Custom Modules
 
-The `spatch_modules` package provides four built-in analysis modules:
+The `spatch_modules` package provides ten built-in analysis modules:
 
 | Module | Description |
 |--------|-------------|
+| `annotation_consensus` | Multi-tool cell-type annotation (CellTypist) |
+| `cell_shape_metrics` | Morphological metrics (area, circularity, eccentricity) from cell boundaries |
 | `codex_loader` | Load Akoya CODEX/PhenoCycler data into SpatialData format |
+| `dapi_tissue_mask` | DAPI-based tissue boundary detection and in-tissue tagging |
 | `diffusion_analysis` | Quantify transcript diffusion from in-tissue to out-of-tissue regions |
 | `gene_protein_correlation` | Multi-resolution correlation between ST gene expression and CODEX protein levels |
-| `cell_shape_metrics` | Compute morphological metrics (area, circularity, eccentricity) from cell boundaries |
+| `grid_binning` | Bin spatial data to a uniform grid |
+| `image_registration` | SimpleITK landmark-based registration |
+| `pipeline_visualizations` | Generate QC and analysis figures (UMAP, spatial, heatmaps) |
+| `spatial_cluster` | CellCharter-based spatial clustering with scVI embedding |
 
 ### List available modules
 
 ```bash
-spatch-modules list
+spatch list
 ```
 
 ### Module details
 
 ```bash
-spatch-modules describe diffusion_analysis
+spatch describe diffusion_analysis
 ```
 
 ## Creating Custom Modules
@@ -135,7 +141,7 @@ custom_modules:
     - module: cell_shape_metrics
       enabled: true
       config:
-        boundaries_key: cell_boundaries
+        boundaries_key: cellpose_boundaries
 ```
 
 ## Project Structure
@@ -158,6 +164,8 @@ multiomics/
 │   ├── spatch_full.yaml             # Complete annotated reference config
 │   └── xenium_example.yaml          # Minimal Xenium example
 ├── notebooks/               # Jupyter notebooks
+│   ├── 01_spatch_workflow_example.ipynb
+│   └── 02_janesick_breast_cancer_analysis.ipynb
 ├── user_modules/            # User-contributed modules (auto-discovered)
 ├── tests/                   # Module tests
 ├── docs/                    # Documentation
