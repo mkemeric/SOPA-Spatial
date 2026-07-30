@@ -14,6 +14,9 @@ from . import image_registration
 from . import annotation_consensus
 from . import spatial_cluster
 from . import pipeline_visualizations
+from . import qc_preprocessing
+from . import leiden_clustering
+from . import spatial_stats
 
 __all__ = [
     "codex_loader",
@@ -26,4 +29,7 @@ __all__ = [
     "annotation_consensus",
     "spatial_cluster",
     "pipeline_visualizations",
+    "qc_preprocessing",
+    "leiden_clustering",
+    "spatial_stats",
 ]

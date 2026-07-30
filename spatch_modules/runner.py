@@ -166,7 +166,7 @@ def run_custom_pipeline(
         module_names = [module_names]
     run_set: set[str] | None = set(module_names) if module_names else None
 
-    config = yaml.safe_load(Path(config_path).read_text())
+    config = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
     module_config = config.get("custom_modules", {})
 
     # Resolve output directory

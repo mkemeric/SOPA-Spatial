@@ -1,0 +1,29 @@
+# Image for the SPATCH analytics Kubeflow pipeline (kubeflow/pipeline_analytics.py).
+#
+# spatch-modules isn't published to PyPI (see notebooks/requirements.txt),
+# so unlike kubeflow/Dockerfile (which only pip-installs published sopa
+# packages), this one builds from the local repo. Build from the REPO
+# ROOT, not this directory, so the COPY paths below resolve:
+#
+#   docker build -f kubeflow/Dockerfile.analytics -t ghcr.io/your-org/spatch-analytics:1.0.0 .
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+COPY pyproject.toml README.md ./
+COPY spatch_modules ./spatch_modules
+
+# imaging -> opencv (dapi_tissue_mask), visualization -> matplotlib
+# (pipeline_visualizations). Add more extras here only if a config you
+# run enables modules that need them (see pyproject.toml [project.optional-dependencies]).
+# scikit-misc -> scanpy's `flavor="seurat_v3"` HVG selection, used by
+# qc_preprocessing's default config (see configs/janesick_breast_cancer.yaml).
+RUN pip install --no-cache-dir \
+    ".[imaging,visualization]" \
+    scikit-misc \
+    kfp==2.* \
+    mlflow==2.19.0

@@ -1,0 +1,93 @@
+# MLflow tracking server for the SPATCH kubeflow pipelines.
+#
+# Build the image first (from the repo root, so the tag below matches):
+#   docker build -t spatch-mlflow:1.0.0 -f kubeflow/mlflow/Dockerfile kubeflow/mlflow
+#
+# Then apply:
+#   kubectl apply -f kubeflow/mlflow/deployment.yaml
+#
+# In-cluster pipeline components should set:
+#   MLFLOW_TRACKING_URI=http://mlflow.mlflow.svc.cluster.local:5000
+#
+# From your machine (e.g. to open the UI), port-forward:
+#   kubectl -n mlflow port-forward svc/mlflow 5000:5000
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mlflow
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlflow-data
+  namespace: mlflow
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: mlflow
+  labels:
+    app: mlflow
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate  # single ReadWriteOnce PVC — no rolling update
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      initContainers:
+        - name: init-dirs
+          image: busybox:1.36
+          command: ["sh", "-c", "mkdir -p /mlflow/db /mlflow/artifacts"]
+          volumeMounts:
+            - name: mlflow-data
+              mountPath: /mlflow
+      containers:
+        - name: mlflow
+          image: spatch-mlflow:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          volumeMounts:
+            - name: mlflow-data
+              mountPath: /mlflow
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: mlflow-data
+          persistentVolumeClaim:
+            claimName: mlflow-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+  namespace: mlflow
+spec:
+  selector:
+    app: mlflow
+  ports:
+    - port: 5000
+      targetPort: 5000
