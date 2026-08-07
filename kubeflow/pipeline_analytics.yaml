@@ -1,0 +1,239 @@
+# PIPELINE DEFINITION
+# Name: spatch-analytics
+# Description: Run SPATCH's YAML-configured custom-module analysis on an existing SpatialData zarr.
+# Inputs:
+#    mlflow_experiment_name: str [Default: 'spatch-analytics']
+#    mlflow_tracking_uri: str [Default: '']
+#    modules: list [Default: []]
+#    sdata_uri: str
+#    spatch_config_yaml: str
+# Outputs:
+#    Output: system.Dataset
+components:
+  comp-importer:
+    executorLabel: exec-importer
+    inputDefinitions:
+      parameters:
+        uri:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifact:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-spatch-run-op:
+    executorLabel: exec-spatch-run-op
+    inputDefinitions:
+      artifacts:
+        sdata_in:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        mlflow_experiment_name:
+          defaultValue: spatch-analytics
+          isOptional: true
+          parameterType: STRING
+        mlflow_tracking_uri:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        modules:
+          defaultValue: []
+          isOptional: true
+          parameterType: LIST
+        spatch_config_yaml:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        results:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-importer:
+      importer:
+        artifactUri:
+          runtimeParameter: uri
+        typeSchema:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+    exec-spatch-run-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - spatch_run_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.17.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef spatch_run_op(\n    sdata_in: Input[Dataset],\n    spatch_config_yaml:\
+          \ str,\n    results: Output[Dataset],\n    modules: list = [],  # noqa:\
+          \ B006 \u2014 empty = run every enabled step\n    mlflow_tracking_uri: str\
+          \ = \"\",\n    mlflow_experiment_name: str = \"spatch-analytics\",\n):\n\
+          \    \"\"\"Runs `run_custom_pipeline` in-process (rather than shelling out\
+          \ to\n    the `spatch` CLI) so every module's metrics/artifacts dict is\n\
+          \    available to log to MLflow \u2014 the CLI only prints them to stdout.\n\
+          \n    `spatch_config_yaml` is the *content* of a spatch config file (e.g.\n\
+          \    configs/janesick_breast_cancer.yaml), passed as a string rather than\n\
+          \    baked into the image \u2014 the pipeline never needs to be recompiled\
+          \ when\n    the config changes.\n\n    The input zarr is never mutated in\
+          \ place: only parquet outputs (and\n    figures, if `pipeline_visualizations`\
+          \ is enabled) are written under\n    `results.path`.\n    \"\"\"\n    from\
+          \ pathlib import Path\n\n    import spatialdata as sd\n    import yaml\n\
+          \n    from spatch_modules.runner import run_custom_pipeline\n\n    config_path\
+          \ = Path(\"/tmp/spatch_config.yaml\")\n    config_path.write_text(spatch_config_yaml)\n\
+          \    Path(results.path).mkdir(parents=True, exist_ok=True)\n\n    sdata\
+          \ = sd.read_zarr(sdata_in.path)\n    module_results = run_custom_pipeline(\n\
+          \        sdata,\n        config_path,\n        module_names=modules or None,\n\
+          \        output_dir=results.path,\n        verbose=True,\n    )\n\n    failed\
+          \ = {\n        name: r[\"errors\"] for name, r in module_results.items()\n\
+          \        if r[\"status\"] == \"failed\"\n    }\n\n    if mlflow_tracking_uri:\n\
+          \        import mlflow\n\n        def _flatten(d: dict, prefix: str = \"\
+          \") -> dict:\n            \"\"\"Dotted-key scalars only \u2014 nested lists\
+          \ (e.g. custom_modules.steps)\n            aren't flattened, the full YAML\
+          \ is logged separately as an artifact.\n            \"\"\"\n           \
+          \ flat = {}\n            for k, v in d.items():\n                key = f\"\
+          {prefix}{k}\"\n                if isinstance(v, dict):\n               \
+          \     flat.update(_flatten(v, prefix=f\"{key}.\"))\n                elif\
+          \ isinstance(v, (str, int, float, bool)) or v is None:\n               \
+          \     flat[key] = v\n            return flat\n\n        mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
+          \        mlflow.set_experiment(mlflow_experiment_name)\n        with mlflow.start_run():\n\
+          \            mlflow.log_text(spatch_config_yaml, \"spatch_config.yaml\"\
+          )\n            mlflow.log_params(_flatten(yaml.safe_load(spatch_config_yaml)))\n\
+          \            mlflow.log_param(\"modules_requested\", \",\".join(modules)\
+          \ or \"all\")\n\n            for name, r in module_results.items():\n  \
+          \              mlflow.log_param(f\"{name}.status\", r[\"status\"])\n   \
+          \             for metric_name, value in r.get(\"metrics\", {}).items():\n\
+          \                    if isinstance(value, (int, float)) and not isinstance(value,\
+          \ bool):\n                        mlflow.log_metric(f\"{name}.{metric_name}\"\
+          , value)\n                    else:\n                        mlflow.log_param(f\"\
+          {name}.{metric_name}\", value)\n\n            mlflow.log_artifacts(results.path,\
+          \ artifact_path=\"spatch_outputs\")\n\n    if failed:\n        raise RuntimeError(f\"\
+          SPATCH modules failed: {failed}\")\n\n"
+        image: ghcr.io/your-org/spatch-analytics:1.0.0
+        resources:
+          cpuLimit: 8.0
+          cpuRequest: 4.0
+          memoryLimit: 34.359738368
+          memoryRequest: 17.179869184
+          resourceCpuLimit: '8'
+          resourceCpuRequest: '4'
+          resourceMemoryLimit: 32Gi
+          resourceMemoryRequest: 16Gi
+pipelineInfo:
+  description: Run SPATCH's YAML-configured custom-module analysis on an existing
+    SpatialData zarr.
+  name: spatch-analytics
+root:
+  dag:
+    outputs:
+      artifacts:
+        Output:
+          artifactSelectors:
+          - outputArtifactKey: results
+            producerSubtask: spatch-run-op
+    tasks:
+      importer:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-importer
+        inputs:
+          parameters:
+            uri:
+              componentInputParameter: sdata_uri
+        taskInfo:
+          name: importer
+      spatch-run-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-spatch-run-op
+        dependentTasks:
+        - importer
+        inputs:
+          artifacts:
+            sdata_in:
+              taskOutputArtifact:
+                outputArtifactKey: artifact
+                producerTask: importer
+          parameters:
+            mlflow_experiment_name:
+              componentInputParameter: mlflow_experiment_name
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            modules:
+              componentInputParameter: modules
+            spatch_config_yaml:
+              componentInputParameter: spatch_config_yaml
+        retryPolicy:
+          backoffDuration: 30s
+          backoffFactor: 2.0
+          backoffMaxDuration: 3600s
+          maxRetryCount: 2
+        taskInfo:
+          name: spatch-run-op
+  inputDefinitions:
+    parameters:
+      mlflow_experiment_name:
+        defaultValue: spatch-analytics
+        description: MLflow experiment to log the run under.
+        isOptional: true
+        parameterType: STRING
+      mlflow_tracking_uri:
+        defaultValue: ''
+        description: 'MLflow tracking server URL (e.g.
+
+          `http://mlflow.mlflow.svc.cluster.local:5000` from inside the
+
+          cluster). Leave blank to skip MLflow logging entirely.'
+        isOptional: true
+        parameterType: STRING
+      modules:
+        defaultValue: []
+        description: 'Optional list of step names to run (matches `-m/--module`
+
+          on `spatch run`, repeatable). Empty = run every step in the
+
+          config with `enabled: true`.'
+        isOptional: true
+        parameterType: LIST
+      sdata_uri:
+        description: "Location of the input SpatialData zarr \u2014 an S3/GCS URI\n\
+          or a path on cluster-visible storage (e.g. a mounted PVC).\nSame convention\
+          \ as `raw_data_uri` in pipeline_raw_to_zarr.py;\nbrought in via `dsl.importer`\
+          \ without copying it ahead of time."
+        parameterType: STRING
+      spatch_config_yaml:
+        description: "Full text of a spatch config YAML (any file\nunder configs/).\
+          \ Every module's parameters live here \u2014 this\npipeline has no opinion\
+          \ on QC thresholds, resolutions, marker\ngenes, etc."
+        parameterType: STRING
+  outputDefinitions:
+    artifacts:
+      Output:
+        artifactType:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.17.0

@@ -163,7 +163,7 @@ def update_manifest(
     manifest_path = d / MANIFEST_FILE
 
     if manifest_path.exists():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     else:
         manifest = {"modules": {}}
 
@@ -171,4 +171,4 @@ def update_manifest(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "files": saved_files,
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2))
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")

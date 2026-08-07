@@ -96,8 +96,12 @@ class DapiTissueMask(SpatchModule):
             image_key = next(iter(sdata.images))
         image_element = sdata.images[image_key]
 
-        # Resolve to numpy (handle DataTree / MultiscaleSpatialImage)
-        if hasattr(image_element, "values"):
+        # Resolve to numpy (handle DataTree / MultiscaleSpatialImage).
+        # `.values` alone can't distinguish the two: a plain xarray.DataArray
+        # also has a `.values` property (the raw ndarray), so `hasattr(...,
+        # "values")` is true either way — it's `.children` that's specific
+        # to DataTree (multiscale) nodes.
+        if hasattr(image_element, "children"):
             # DataTree – take highest resolution
             ds = next(iter(image_element.values()))
             img_arr = ds["image"].values if "image" in ds else next(iter(ds.values())).values

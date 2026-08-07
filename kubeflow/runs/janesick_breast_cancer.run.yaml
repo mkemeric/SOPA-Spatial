@@ -1,0 +1,33 @@
+# Run parameters for kubeflow/pipeline_analytics.py.
+#
+# This is the file to edit when the input data changes — new zarr
+# location, different config, or a subset of modules to (re-)run. The
+# pipeline itself (kubeflow/pipeline_analytics.py) never needs to change
+# or be recompiled for any of this.
+#
+# Submit with:
+#   python kubeflow/submit_analytics_run.py kubeflow/runs/janesick_breast_cancer.run.yaml
+
+host: http://localhost:8080  # Kubeflow Pipelines API endpoint
+experiment_name: spatch-analytics
+run_name: janesick-breast-cancer
+
+# Where the input SpatialData zarr lives — S3/GCS URI or a path on
+# cluster-visible storage (e.g. a mounted PVC). Same convention as
+# raw_data_uri in kubeflow/pipeline_raw_to_zarr.py.
+sdata_uri: minio://mlpipeline/spatch-input/janesick.zarr
+
+# Path to the spatch config YAML (any file under configs/, resolved
+# relative to the repo root). Its full text is embedded into the run as
+# a parameter — editing it never requires recompiling the pipeline.
+spatch_config_path: configs/janesick_breast_cancer.yaml
+
+# Optional: restrict the run to specific custom_modules steps by name
+# (e.g. ["qc_preprocessing", "leiden_clustering"] to re-run just those).
+# Leave empty to run every step in the config with enabled: true.
+modules: []
+
+# MLflow tracking server (see kubeflow/mlflow/deployment.yaml). In-cluster
+# DNS name of the Service deployed there — leave blank to skip MLflow.
+mlflow_tracking_uri: http://mlflow.mlflow.svc.cluster.local:5000
+mlflow_experiment_name: spatch-analytics

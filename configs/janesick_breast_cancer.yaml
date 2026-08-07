@@ -40,51 +40,6 @@ aggregate:
   min_transcripts: 10
 
 # ═══════════════════════════════════════════════════════════════════
-# PREPROCESSING & QC
-# ═══════════════════════════════════════════════════════════════════
-# Standard single-cell preprocessing optimized for breast cancer tissue
-
-preprocessing:
-  # Cell filtering - relaxed for tumor samples
-  min_genes_per_cell: 50  # Lower threshold for tumor cells
-  max_genes_per_cell: 10000  # Higher for potential highly transcriptionally active cells
-  
-  # Gene filtering  
-  min_cells_per_gene: 5
-  
-  # Mitochondrial filtering - important for FFPE tissue quality assessment
-  max_pct_mt: 25  # More permissive for FFPE
-  mito_prefix: "MT-"  # Human mitochondrial genes
-  
-  # Normalization
-  target_sum: 10000
-  log1p: true
-  
-  # Highly variable genes
-  n_top_genes: 3000  # More genes for complex tumor microenvironment
-  flavor: seurat_v3
-  
-  # Dimensionality reduction
-  n_pcs: 50
-  n_neighbors: 30  # Larger for dense Xenium data
-  umap_min_dist: 0.3
-
-# ═══════════════════════════════════════════════════════════════════
-# CLUSTERING
-# ═══════════════════════════════════════════════════════════════════
-# Multi-resolution clustering to capture tumor microenvironment heterogeneity
-
-clustering:
-  # Spatial neighbors graph
-  spatial_neighbors:
-    coord_type: generic
-    n_neighs: 30  # Dense spatial graph for Xenium resolution
-    
-  # Leiden clustering at multiple resolutions
-  leiden:
-    resolutions: [0.3, 0.5, 0.8, 1.0, 1.5]  # Multiple resolutions for tumor heterogeneity
-
-# ═══════════════════════════════════════════════════════════════════
 # ANNOTATION
 # ═══════════════════════════════════════════════════════════════════
 # Cell type annotation using marker genes for breast cancer
@@ -122,36 +77,71 @@ annotation:
     cell_type_key: cell_type
 
 # ═══════════════════════════════════════════════════════════════════
-# SPATIAL ANALYSIS
-# ═══════════════════════════════════════════════════════════════════
-# Spatial statistics specific to tumor microenvironment
-
-spatial_analysis:
-  # Neighborhood enrichment
-  neighborhood:
-    enabled: true
-    
-  # Ligand-receptor interactions
-  interactions:
-    enabled: true
-    
-  # Ripley's statistics for spatial patterns
-  ripley:
-    enabled: true
-    
-  # Co-occurrence analysis
-  cooccurrence:
-    enabled: true
-
-# ═══════════════════════════════════════════════════════════════════
 # CUSTOM SPATCH MODULES
 # ═══════════════════════════════════════════════════════════════════
-# SPATCH-specific analyses for the breast cancer sample
+# SPATCH-specific analyses for the breast cancer sample.
+#
+# Every parameter below (QC thresholds, clustering resolutions, spatial
+# stats toggles, ...) is the single source of truth for its module — this
+# is the only place `spatch run` actually reads config from. Editing
+# these values (or swapping which zarr/config a Kubeflow run points at
+# via kubeflow/runs/*.run.yaml) never requires touching pipeline code.
 
 custom_modules:
   user_module_dir: ./user_modules/
-  
+
   steps:
+    # ─────────────────────────────────────────────────────────────
+    # QC Preprocessing (must run first — produces PCA/neighbor graph)
+    # ─────────────────────────────────────────────────────────────
+    # Cell/gene filtering, normalization, HVG/PCA/UMAP. Thresholds
+    # relaxed for tumor samples / FFPE tissue quality.
+    - module: qc_preprocessing
+      enabled: true
+      config:
+        min_genes_per_cell: 50   # Lower threshold for tumor cells
+        max_genes_per_cell: 10000  # Higher for transcriptionally active cells
+        min_cells_per_gene: 5
+        max_pct_mt: 25            # More permissive for FFPE
+        mito_prefix: "MT-"        # Human mitochondrial genes
+        target_sum: 10000
+        log1p: true
+        n_top_genes: 3000         # More genes for complex tumor microenvironment
+        flavor: seurat_v3
+        n_pcs: 50
+        n_neighbors: 30           # Larger for dense Xenium data
+        umap_min_dist: 0.3
+
+    # ─────────────────────────────────────────────────────────────
+    # Leiden Clustering (requires qc_preprocessing)
+    # ─────────────────────────────────────────────────────────────
+    # Multi-resolution clustering to capture tumor microenvironment
+    # heterogeneity. Produces columns leiden_0.3, leiden_0.5, ...
+    - module: leiden_clustering
+      enabled: true
+      config:
+        resolutions: [0.3, 0.5, 0.8, 1.0, 1.5]
+
+    # ─────────────────────────────────────────────────────────────
+    # Spatial Statistics (requires leiden_clustering)
+    # ─────────────────────────────────────────────────────────────
+    # Spatial neighbor graph + neighborhood enrichment. Ripley/
+    # co-occurrence/interactions off by default (slower, opt-in).
+    - module: spatial_stats
+      enabled: true
+      config:
+        cluster_key: leiden_0.5
+        coord_type: generic
+        n_neighs: 30              # Dense spatial graph for Xenium resolution
+        neighborhood:
+          enabled: true
+        ripley:
+          enabled: false
+        cooccurrence:
+          enabled: false
+        interactions:
+          enabled: false
+
     # ─────────────────────────────────────────────────────────────
     # DAPI Tissue Mask (must run before diffusion_analysis)
     # ─────────────────────────────────────────────────────────────
@@ -256,28 +246,3 @@ output:
     figure_dir: ./results/janesick_breast_cancer/figures/
     figure_format: png
     figure_dpi: 300
-
-# ═══════════════════════════════════════════════════════════════════
-# VISUALIZATION
-# ═══════════════════════════════════════════════════════════════════
-
-visualization:
-  # Genes to visualize spatially
-  marker_genes:
-    - FASN      # Invasive tumor marker
-    - CEACAM6   # DCIS marker
-    - ACTA2     # Myoepithelial marker
-    - KRT15     # Myoepithelial marker
-    - POSTN     # Stromal marker
-    - CD3E      # T cell marker
-    - ITGAX     # Macrophage marker
-    - VWF       # Endothelial marker
-    
-  # Plot types to generate
-  plots:
-    - spatial_scatter
-    - umap
-    - cluster_composition
-    - marker_heatmap
-    - neighborhood_enrichment
-    - cell_shape_distributions
